@@ -1,0 +1,6 @@
+openai
+numpy
+pandas
+requests
+bs4
+tqdm
