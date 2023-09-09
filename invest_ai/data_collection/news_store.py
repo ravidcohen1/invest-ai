@@ -5,6 +5,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from pathlib import Path
 from shutil import copy2
 from typing import Optional
 
@@ -24,32 +25,30 @@ class NewsStore:
     A class to manage the storage and retrieval of news articles and their metadata.
     """
 
-    def __init__(self, data_folder: str = cfg.DATA_PATH):
-        self.data_folder = data_folder
-        self.csv_file = os.path.join(self.data_folder, "news_store.csv")
-        self.df = self._load_data()
+    def __init__(self, csv_file_path: Optional[Path] = cfg.NEW_DATA_PATH, backup=True):
+        self.csv_file_path = csv_file_path
+        self.df = self._load_data(backup)
 
-    def _load_data(self) -> pd.DataFrame:
+    def _load_data(self, backup) -> pd.DataFrame:
         """Load data from the CSV file into a DataFrame."""
-        if os.path.exists(self.csv_file):
-            self._backup_data()
-            return pd.read_csv(self.csv_file)
+        if os.path.exists(self.csv_file_path):
+            if backup:
+                self._backup_data()
+            return pd.read_csv(self.csv_file_path)
         else:
             return pd.DataFrame(columns=["date", "url", "source", "title", "article"])
 
     def _save_data(self) -> None:
         """Save the DataFrame to a CSV file."""
-        self.df.to_csv(self.csv_file, index=False)
+        self.df.to_csv(self.csv_file_path, index=False)
 
     def _backup_data(self) -> None:
         """Create a backup of the current CSV file."""
-        data_folder = self.data_folder
+        data_folder = self.csv_file_path.parent
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        backup_filename = os.path.join(
-            data_folder, f"news_store_backup_{timestamp}.csv"
-        )
+        backup_filename = data_folder / f"news_store_backup_{timestamp}.csv"
 
-        copy2(self.csv_file, backup_filename)
+        copy2(self.csv_file_path, backup_filename)
 
     def _validate_inputs(self, start_date_str: str, end_date_str: str):
         validate_date_format(start_date_str)
