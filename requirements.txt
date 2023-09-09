@@ -1,6 +1,7 @@
-openai
-numpy
-pandas
-requests
-bs4
+openai==2.31.0
+numpy==1.23.5
+pandas==1.5.2
+requests==2.31.0
+bs4==0.0.1
 tqdm
+pytest==7.4.0
