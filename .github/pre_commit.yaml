@@ -1,4 +1,4 @@
-name: CI
+name: Pre-commit Checks
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.9'
+        python-version: '3.8'
 
     - name: Install pre-commit
       run: pip install pre-commit
