@@ -1,0 +1,33 @@
+# general_config.yaml
+
+defaults:
+  - data: next_day_opening
+
+
+data_path: "data/"
+finance_data_path: "${data_path}/finance_store.pkl"
+news_data_path: "${data_path}/news_store.csv"
+
+min_supported_date: "2007-01-01"
+max_supported_date: "2023-12-31"
+supported_tickers:
+  - "AAPL"  # Apple Inc.
+  - "MSFT"  # Microsoft Corporation
+  - "AMZN"  # Amazon.com Inc.
+  - "GOOGL"  # Alphabet Inc.
+  - "META"  # Meta, Inc.
+  - "TCEHY"  # Tencent Holdings
+  - "BABA"  # Alibaba Group Holding
+  - "NVDA"  # NVIDIA Corporation
+  - "TSLA"  # Tesla, Inc.
+  - "PYPL"  # PayPal Holdings, Inc.
+  - "ADBE"  # Adobe Inc.
+  - "INTC"  # Intel Corporation
+  - "CSCO"  # Cisco Systems, Inc.
+  - "ORCL"  # Oracle Corporation
+  - "CRM"  # Salesforce.com, Inc.
+  - "SSNLF"  # Samsung Electronics Co., Ltd.
+  - "IBM"  # IBM
+  - "SAP"  # SAP SE
+  - "ASML"  # ASML Holding N.V.
+  - "AMD"  # Advanced Micro Devices, Inc.

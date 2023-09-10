@@ -34,13 +34,16 @@ class NewsStore:
         if os.path.exists(self.csv_file_path):
             if backup:
                 self._backup_data()
-            return pd.read_csv(self.csv_file_path)
+            df = pd.read_csv(self.csv_file_path)
+            print(f"Data loaded. DataFrame shape: {df.shape}")
+            return df
         else:
             return pd.DataFrame(columns=["date", "url", "source", "title", "article"])
 
     def _save_data(self) -> None:
         """Save the DataFrame to a CSV file."""
         self.df.to_csv(self.csv_file_path, index=False)
+        print(f"Data saved to {self.csv_file_path}. DataFrame shape: {self.df.shape}")
 
     def _backup_data(self) -> None:
         """Create a backup of the current CSV file."""

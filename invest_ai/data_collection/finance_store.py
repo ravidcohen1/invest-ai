@@ -143,3 +143,8 @@ class FinanceStore:
             raise TypeError(
                 "stock_tickers must be either a string or a list of strings"
             )
+
+
+if __name__ == "__main__":
+    fs = FinanceStore()
+    print(fs.df)

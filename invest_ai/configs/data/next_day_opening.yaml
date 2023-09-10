@@ -1,0 +1,22 @@
+# data_preprocess_config.yaml
+
+time_config:
+  prediction_horizon: 1  # Number of days for prediction
+  lookback_period: 5  # Number of days to look back
+
+target_config:
+  variable: 'Adj Close'  # The metric to predict
+  aggregation: 'last'  # Could be 'mean', 'last', 'high', 'low' depending on your target
+
+feature_config:
+  use_news_data: true  # Whether or not to use news data
+  textual_features: ['title', 'content']  # Textual features from news data
+  numerical_features: ['Open', 'High', 'Low', 'Volume']  # Numerical features from finance data
+
+scaling_config:
+  scale_features: true  # Whether to scale features
+  scaler_type: 'MinMaxScaler'  # Could be 'StandardScaler', 'RobustScaler', etc.
+  scale_target: false  # Whether to scale the target variable
+
+missing_value_config:
+  strategy: 'interpolate'  # Could be 'drop', 'fill_mean', 'interpolate'
