@@ -1,22 +1,28 @@
-# data_preprocess_config.yaml
 
-time_config:
-  prediction_horizon: 1  # Number of days for prediction
-  lookback_period: 5  # Number of days to look back
+target_binning:
+  num_bins: 3
+  labels: ['low', 'medium', 'high']
+  strategy: 'equal_frequency' # could be equal_frequency, equal_width
 
-target_config:
-  variable: 'Adj Close'  # The metric to predict
-  aggregation: 'last'  # Could be 'mean', 'last', 'high', 'low' depending on your target
+returns:
+  horizon: 1  # Number of days for prediction
+  selling_at: 'open'  # The metric to predict. one of open, close, adj_close, high, low
+  aggregation: 'last'  # Could be 'mean', 'last', 'max', 'min' depending on your target
+  buying_at: 'open'  # metric of the last day from the lookback to compare with when computing the return
 
-feature_config:
-  use_news_data: true  # Whether or not to use news data
-  textual_features: ['title', 'content']  # Textual features from news data
-  numerical_features: ['Open', 'High', 'Low', 'Volume']  # Numerical features from finance data
+features:
+  lookback: 5  # Number of days to look back
+  textual_features: ['title', 'weekday', 'ticker']  # Textual features, could be title, ticker, article (not supported yet)
+  numerical_features: ['open', 'close', 'adj_close', 'high', 'low', 'volume']  # Numerical features from finance data
+  drop_features_for_last_day: ['close', 'adj_close', 'high', 'low', 'volume']  # Features to drop for the last day in the lookback
 
-scaling_config:
-  scale_features: true  # Whether to scale features
-  scaler_type: 'MinMaxScaler'  # Could be 'StandardScaler', 'RobustScaler', etc.
-  scale_target: false  # Whether to scale the target variable
+
+
+numerical_features_scaling:
+  method: relative_scale
+  relative_to: 'first'  # Could be 'first', 'last', 'min', 'max', 'mean'
 
 missing_value_config:
-  strategy: 'interpolate'  # Could be 'drop', 'fill_mean', 'interpolate'
+  strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
+
+tickers: ['^GSPC', 'META']

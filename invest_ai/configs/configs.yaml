@@ -4,7 +4,7 @@ defaults:
   - data: next_day_opening
 
 
-data_path: "data/"
+data_path: "/Users/user/PycharmProjects/invest-ai/data"
 finance_data_path: "${data_path}/finance_store.pkl"
 news_data_path: "${data_path}/news_store.csv"
 
@@ -31,3 +31,4 @@ supported_tickers:
   - "SAP"  # SAP SE
   - "ASML"  # ASML Holding N.V.
   - "AMD"  # Advanced Micro Devices, Inc.
+  - "^GSPC"  # S&P 500

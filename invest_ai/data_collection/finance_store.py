@@ -73,6 +73,7 @@ class FinanceStore:
         start_date: datetime.date,
         end_date: datetime.date,
         stock_tickers: Union[List[str], str],
+        melt=False,
     ) -> pd.DataFrame:
         """
         Fetch or retrieve finance data for specific stock(s) within a date range.
@@ -90,16 +91,40 @@ class FinanceStore:
         self._validate_get_finance_for_dates_input(start_date, end_date, stock_tickers)
 
         # Slice the DataFrame to match the date range
-        sliced_df = self.df.loc[pd.IndexSlice[start_date:end_date], :]
+        df = self.df.loc[pd.IndexSlice[start_date:end_date], :]
 
         # If stock_tickers is a string, convert to a single-item list
         if isinstance(stock_tickers, str):
             stock_tickers = [stock_tickers]
 
         # Filter by stock_tickers
-        sliced_df = sliced_df.loc[:, pd.IndexSlice[:, stock_tickers]]
+        df = df.loc[:, pd.IndexSlice[:, stock_tickers]]
 
-        return sliced_df
+        if melt:
+            # Reset the index to make 'Date' a column
+            df.reset_index(inplace=True)
+
+            # Melt the DataFrame to have 'ticker' and 'metric' as columns
+            df_melt = df.melt(
+                id_vars=["Date"], var_name=["metric", "ticker"], value_name="value"
+            )
+
+            # Create a new DataFrame by pivoting 'df_melt'
+            df_pivot = df_melt.pivot(
+                index=["Date", "ticker"], columns="metric", values="value"
+            )
+
+            # Reset the index for the new DataFrame
+            df_pivot.reset_index(inplace=True)
+
+            # Make the metric names lowercase
+            df_pivot.columns = [
+                col.lower().replace(" ", "_") for col in df_pivot.columns
+            ]
+            df_pivot = df_pivot.dropna()
+            df = df_pivot
+
+        return df
 
     def _validate_init_input(
         self,
