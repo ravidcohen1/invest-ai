@@ -1,7 +1,7 @@
 
 target_binning:
   num_bins: 3
-  labels: ['low', 'medium', 'high']
+  labels: ['bad', 'neutral', 'good']
   strategy: 'equal_frequency' # could be equal_frequency, equal_width
 
 returns:
@@ -23,15 +23,15 @@ numerical_features_scaling:
 missing_value_config:
   strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
 
-tickers: ['^GSPC', 'META']
+tickers: ['GOOGL', 'AAPL']
 
 
 train_period:
-  start_date: '2010-01-01'
-  end_date: '2019-12-31'
+  start_date: '2023-08-01'
+  end_date: '2023-08-10'
 val_period:
-  start_date: '2020-01-01'
-  end_date: '2022-09-30'
+  start_date: '2023-08-11'
+  end_date: '2023-08-20'
 test_period:
-    start_date: '2022-10-01'
-    end_date: '2023-09-01'
+    start_date: '2023-08-21'
+    end_date: '2023-08-30'

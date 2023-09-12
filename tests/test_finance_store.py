@@ -16,8 +16,8 @@ TEST_DATA_PATH = Path("__file__").parent / "data/test_finance_store.pkl"
 @pytest.fixture(scope="module")
 def finance_store():
     fs = FinanceStore(
-        min_date=date(2023, 8, 7),
-        max_date=date(2023, 8, 12),
+        min_date=date(2023, 8, 1),
+        max_date=date(2023, 8, 30),
         supported_tickers=["AAPL", "GOOGL"],
         data_path=TEST_DATA_PATH,
     )

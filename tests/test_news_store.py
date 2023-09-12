@@ -16,7 +16,7 @@ TEST_DATA_PATH = Path("__file__").parent / "data/test_news_store.csv"
 def setup_news_store():
     ns = NewsStore(TEST_DATA_PATH, backup=False)
     if not TEST_DATA_PATH.exists():
-        ns.get_news_for_dates("2021-09-01", "2021-09-02", fetch_missing_dates=True)
+        ns.get_news_for_dates("2023-08-01", "2023-08-30", fetch_missing_dates=True)
     return ns
 
 
@@ -72,8 +72,8 @@ def test_validate_inputs(setup_news_store, start_date_str, end_date_str, should_
 
 
 def test_get_news_for_dates(setup_news_store):
-    start_date_str = "2021-09-01"
-    end_date_str = "2021-09-02"
+    start_date_str = "2023-08-01"
+    end_date_str = "2023-08-03"
 
     # Fetch news data for the date range
     result_df = setup_news_store.get_news_for_dates(start_date_str, end_date_str)

@@ -35,21 +35,41 @@ class DataPreprocessor:
         self.news_store = news_store
         self.cfg = config
 
-    def preprocess(
-        self, start_date, end_date, train: bool
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def prepare_datasets(self):
+        train_df = self.preprocess(
+            start_date=self.cfg.train_period.start_date,
+            end_date=self.cfg.train_period.end_date,
+            train=True,
+        )
+        val_df = self.preprocess(
+            start_date=self.cfg.val_period.start_date,
+            end_date=self.cfg.val_period.end_date,
+            train=False,
+        )
+        test_df = self.preprocess(
+            start_date=self.cfg.test_period.start_date,
+            end_date=self.cfg.test_period.end_date,
+            train=False,
+        )
+        self._target_binning(train_df, val_df, test_df)
+
+    def preprocess(self, start_date, end_date, train: bool) -> pd.DataFrame:
         finance_df = self.finance_store.get_finance_for_dates(
             start_date=start_date,
             end_date=end_date,
             stock_tickers=list(self.cfg.tickers),
             melt=True,
         )
+        if finance_df.empty:
+            raise f"No finance data for dates {start_date} - {end_date}"
         news_df = self.news_store.get_news_for_dates(
             start_date=start_date,
             end_date=end_date,
             fetch_missing_dates=False,
             drop_articles=True,
         )
+        if news_df.empty:
+            raise f"No news data for dates {start_date} - {end_date}"
 
         finance_df = self._fill_missing_dates(finance_df)
         news_df = self._process_and_agg_news(news_df)
@@ -59,7 +79,6 @@ class DataPreprocessor:
         df = self._feature_engineering(df)
         df_x, df_y = self._xy_split(df)
         df_y = self._compute_returns(df_x, df_y)
-        # df_y = self._target_binning(df_y)
         df_x = self._drop_features_for_last_day(df_x)
         df_x = self._scaling(df_x)
 
@@ -67,6 +86,38 @@ class DataPreprocessor:
         return df
 
     def _finalize(self, df_x, df_y):
+        """
+        Finalizes the feature and target DataFrames for model training or evaluation.
+
+        This function takes preprocessed features and targets, performs additional
+        aggregation, and merges them into a single DataFrame. It specifically:
+
+        1. Converts the 'date' column to datetime format if not already.
+        2. Selects relevant features based on the configuration.
+        3. Aggregates the features by 'ticker' and sample ID, converting them to lists.
+        4. Merges the aggregated features with the target 'return' values.
+
+        Parameters:
+        -----------
+        df_x : pd.DataFrame
+            The DataFrame containing features. It is assumed to contain a 'date',
+            'ticker', sample ID, and feature columns as specified in the configuration.
+
+        df_y : pd.DataFrame
+            The DataFrame containing the target 'return' values. It is assumed to
+            contain a 'ticker', sample ID, and 'return' columns.
+
+        Returns:
+        --------
+        pd.DataFrame
+            The finalized DataFrame containing both features and target, ready for
+            model training or evaluation.
+
+        Assumptions:
+        ------------
+        - Both df_x and df_y are assumed to have 'ticker' and sample ID columns.
+        - The 'date' column in df_x is assumed to be convertible to datetime format.
+        """
         # Convert the 'date' column to datetime format
         features = (
             self.cfg.features.numerical_features + self.cfg.features.textual_features
@@ -107,6 +158,41 @@ class DataPreprocessor:
         return df_x
 
     def _compute_returns(self, df_x: pd.DataFrame, df_y: pd.DataFrame) -> pd.DataFrame:
+        """
+        Compute the returns based on the selling and buying metrics for each ticker and sample ID.
+
+        This method computes returns based on the aggregated value of a selling metric in the
+        horizon period (df_y) and the last value of a buying metric in the lookback period (df_x).
+
+        Parameters
+        ----------
+        df_x : DataFrame
+            The DataFrame containing data from the lookback period. It is assumed that this DataFrame
+            contains the columns ["ticker", SAMPLE_ID] and the buying metric specified in the configuration.
+
+        df_y : DataFrame
+            The DataFrame containing data from the horizon period. It is assumed that this DataFrame
+            contains the columns ["ticker", SAMPLE_ID] and the selling metric specified in the configuration.
+
+        Returns
+        -------
+        DataFrame
+            A new DataFrame with the same structure as df_y, but with an additional column 'return' that
+            contains the computed returns.
+
+        Assumptions
+        -----------
+        - df_x and df_y have the same tickers and SAMPLE_IDs.
+        - df_x and df_y have non-overlapping DAY_IDX.
+        - The buying_at and selling_at metrics specified in the configuration exist in df_x and df_y, respectively.
+        - df_x and df_y are sorted by ["ticker", SAMPLE_ID, DAY_IDX] in ascending order.
+
+        Notes
+        -----
+        - The aggregation method (mean, last, etc.) for the selling_at metric is configurable.
+        - The buying_at metric's last value in the lookback period is used for computation.
+
+        """
         # Get the configurations
         selling_at = self.cfg.returns.selling_at
         aggregation = self.cfg.returns.aggregation
@@ -199,18 +285,47 @@ class DataPreprocessor:
         return df
 
     def _scaling(self, df_x, df_y=None):
-        def _scale_feature(df, feature, scale_value):
-            # Create a DataFrame for the scale values, indexed by ['ticker', 's_id']
-            scale_df = pd.DataFrame(
-                {
-                    "ticker": df["ticker"],
-                    SAMPLE_ID: df[SAMPLE_ID],
-                    "scale_value": scale_value,
-                }
-            ).drop_duplicates()
+        """
+        Scale numerical features in the data according to a specified method and reference.
 
-            # Merge this DataFrame with df_x and df_y to apply the scaling factor
-            df = df.merge(scale_df, on=["ticker", SAMPLE_ID])
+        This method scales the numerical features based on a scaling method and a reference feature.
+        The scaling is performed in a way that's unique to each ['ticker', SAMPLE_ID] group.
+
+        Parameters
+        ----------
+        df_x : DataFrame
+            DataFrame containing features for the lookback period.
+            It is assumed that this DataFrame contains the columns ["ticker", SAMPLE_ID] and the features specified in the configuration.
+
+        df_y : DataFrame, optional
+            DataFrame containing features for the horizon period.
+            If provided, it is assumed that this DataFrame contains the columns ["ticker", SAMPLE_ID] and the features specified in the configuration.
+
+        Returns
+        -------
+        DataFrame or Tuple[DataFrame, DataFrame]
+            The scaled DataFrame(s). If `df_y` is provided, returns a tuple of scaled DataFrames `(df_x, df_y)`.
+
+        Assumptions
+        -----------
+        - df_x and df_y, if provided, have the same tickers and SAMPLE_IDs.
+        - The 'relative_to' feature exists in df_x and df_y, and is not among the features dropped for the last day.
+        - df_x and df_y are sorted by ["ticker", SAMPLE_ID, DAY_IDX] in ascending order.
+
+        Raises
+        ------
+        ValueError
+            If 'relative_to' feature is among the features dropped for the last day.
+        """
+
+        def _scale_feature(df, feature, scale_value):
+            scale_value = scale_value.copy()
+            # Reset the index of scale_value to make it a DataFrame
+            scale_value = scale_value.reset_index()
+            scale_value = scale_value.rename(columns={feature: "scale_value"})
+
+            # Merge this DataFrame with df to apply the scaling factor
+            df = pd.merge(df, scale_value, on=["ticker", SAMPLE_ID], how="left")
 
             # Apply the scaling
             df[feature] /= df["scale_value"]
@@ -231,7 +346,7 @@ class DataPreprocessor:
         if method == "relative_scale":
             for feature in selected_features:
                 # Calculate the scaling values only based on df_x
-                scale_value = df_x.groupby(["ticker", SAMPLE_ID])[feature].transform(
+                scale_value = df_x.groupby(["ticker", SAMPLE_ID])[feature].agg(
                     relative_to
                 )
 
@@ -239,32 +354,56 @@ class DataPreprocessor:
                 df_x = _scale_feature(df_x, feature, scale_value)
                 if df_y is not None:
                     df_y = _scale_feature(df_y, feature, scale_value)
+        else:
+            raise NotImplemented(f"Not implemented scaling method {method}")
         if df_y is None:
             return df_x
         else:
             return df_x, df_y
 
-    def _target_binning(self, df_y: pd.DataFrame) -> pd.DataFrame:
-        # Get the configurations
+    def _determine_bins(self, train_df: pd.DataFrame) -> pd.IntervalIndex:
         num_bins = self.cfg.target_binning.num_bins
-        labels = self.cfg.target_binning.labels
         strategy = self.cfg.target_binning.strategy
 
-        # Perform the binning
         if strategy == "equal_frequency":
-            df_y["target"] = pd.qcut(df_y["return"], q=num_bins, labels=labels)
+            _, bins = pd.qcut(train_df["return"], q=num_bins, retbins=True)
         elif strategy == "equal_width":
-            df_y["target"] = pd.cut(df_y["return"], bins=num_bins, labels=labels)
+            _, bins = pd.cut(train_df["return"], bins=num_bins, retbins=True)
         else:
             raise ValueError(f"Unsupported binning strategy: {strategy}")
 
-        return df_y
+        return pd.IntervalIndex.from_breaks(bins)
+
+    def _apply_bins(self, df: pd.DataFrame, bins: pd.IntervalIndex) -> pd.DataFrame:
+        labels = self.cfg.target_binning.labels
+        # Find the index of the interval for each "return" value
+        bin_indices = bins.get_indexer(df["return"].values)
+
+        # Map the index to the corresponding label
+        df["target"] = [labels[int(i)] if i != -1 else None for i in bin_indices]
+
+        return df
+
+    def _target_binning(
+        self,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame = None,
+        test_df: pd.DataFrame = None,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        # Determine the bin edges using only the training data
+        bins = self._determine_bins(train_df)
+
+        # Apply the bin edges to the training, validation, and test data
+        train_df = self._apply_bins(train_df, bins)
+        if val_df is not None:
+            val_df = self._apply_bins(val_df, bins)
+        if test_df is not None:
+            test_df = self._apply_bins(test_df, bins)
+
+        return train_df, val_df, test_df
 
 
-@hydra.main(config_path="../configs", config_name="configs")
-def main(cfg: DictConfig) -> None:
-    print(OmegaConf.to_yaml(cfg))
-
+def visualise_this(cfg):
     # Initialize FinanceStore
     finance_store = FinanceStore(data_path=Path(cfg.finance_data_path))
 
@@ -272,6 +411,8 @@ def main(cfg: DictConfig) -> None:
     news_store = NewsStore(csv_file_path=Path(cfg.news_data_path))
 
     # Initialize DataPreprocessor with FinanceStore and preprocessing configurations
+    cfg.data.target_binning.num_bins = 5
+    cfg.data.target_binning.labels = ["very_bad", "bad", "neutral", "good", "very_good"]
     preprocessor = DataPreprocessor(finance_store, news_store, cfg.data)
 
     # Start data preprocessing
@@ -279,10 +420,20 @@ def main(cfg: DictConfig) -> None:
 
     start_date = datetime.date(year=2020, month=1, day=1)
     end_date = datetime.date(year=2020, month=12, day=30)
-    df_x, df_y = preprocessor.preprocess(
+    df_train = preprocessor.preprocess(
         start_date=start_date, end_date=end_date, train=True
     )
+    df_train, _, _ = preprocessor._target_binning(df_train)
+
+    from invest_ai.plots.histograms import plot_return_histograms_by_target
+
+    plot_return_histograms_by_target(df_train)
     print()
+
+
+@hydra.main(config_path="../configs", config_name="configs")
+def main(cfg: DictConfig) -> None:
+    visualise_this(cfg)
 
 
 if __name__ == "__main__":
