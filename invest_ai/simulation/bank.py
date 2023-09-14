@@ -18,7 +18,9 @@ class Bank:
         """
         self._date = start_date
         if self.is_weekend():
-            raise ValueError("Start date should not be a weekend.")
+            raise ValueError(
+                f"Start date should not be a weekend. {start_date} is a weekend."
+            )
         self.fs = fs
         self._cash = float(initial_amount)
         self.total_deposits = float(initial_amount)

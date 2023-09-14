@@ -57,7 +57,7 @@ def test_validate_inputs(news_store, start_date_str, end_date_str, should_raise)
 
 def test_get_news_for_dates(news_store):
     start_date_str = "2023-08-01"
-    end_date_str = "2023-08-03"
+    end_date_str = "2023-08-30"
 
     # Fetch news data for the date range
     result_df = news_store.get_news_for_dates(start_date_str, end_date_str)

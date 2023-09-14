@@ -5,6 +5,7 @@ from typing import Tuple
 import hydra
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
+from tqdm import tqdm
 
 from invest_ai.data_collection.finance_store import FinanceStore
 from invest_ai.data_collection.news_store import NewsStore
@@ -36,28 +37,36 @@ class DataPreprocessor:
         self.cfg = config
 
     def prepare_datasets(self):
+        print("Preparing train...")
         train_df = self.preprocess(
-            start_date=self.cfg.train_period.start_date,
-            end_date=self.cfg.train_period.end_date,
+            start_date=self.cfg.time_frames.train.start_date,
+            end_date=self.cfg.time_frames.train.end_date,
             train=True,
         )
+        print("Preparing val...")
         val_df = self.preprocess(
-            start_date=self.cfg.val_period.start_date,
-            end_date=self.cfg.val_period.end_date,
+            start_date=self.cfg.time_frames.val.start_date,
+            end_date=self.cfg.time_frames.val.end_date,
             train=False,
         )
+        print("Preparing test...")
         test_df = self.preprocess(
-            start_date=self.cfg.test_period.start_date,
-            end_date=self.cfg.test_period.end_date,
+            start_date=self.cfg.time_frames.test.start_date,
+            end_date=self.cfg.time_frames.test.end_date,
             train=False,
         )
-        self._target_binning(train_df, val_df, test_df)
+        print("Binning...")
+        train_df, val_df, test_df = self._target_binning(train_df, val_df, test_df)
+        print(
+            f"Done! Train shape: {train_df.shape}, Val shape: {val_df.shape}, Test shape: {test_df.shape}"
+        )
+        return train_df, val_df, test_df
 
     def preprocess(self, start_date, end_date, train: bool) -> pd.DataFrame:
         finance_df = self.finance_store.get_finance_for_dates(
             start_date=start_date,
             end_date=end_date,
-            stock_tickers=list(self.cfg.tickers),
+            stock_tickers=list(self.cfg.stocks),
             melt=True,
         )
         if finance_df.empty:
@@ -71,17 +80,24 @@ class DataPreprocessor:
         if news_df.empty:
             raise f"No news data for dates {start_date} - {end_date}"
 
+        print("Filling missing dates...")
         finance_df = self._fill_missing_dates(finance_df)
+        print("Aggregating news...")
         news_df = self._process_and_agg_news(news_df)
+        print("Merging finance and news...")
         df = pd.merge(finance_df, news_df, on="date", how="outer")
-
+        print("Time windowing...")
         df = self._time_windowing(df)
+        print("Feature engineering...")
         df = self._feature_engineering(df)
         df_x, df_y = self._xy_split(df)
+        print("Computing returns...")
         df_y = self._compute_returns(df_x, df_y)
+        print("Dropping features for last day...")
         df_x = self._drop_features_for_last_day(df_x)
+        print("Scaling...")
         df_x = self._scaling(df_x)
-
+        print("Finalizing...")
         df = self._finalize(df_x, df_y)
         return df
 
@@ -257,7 +273,7 @@ class DataPreprocessor:
 
         for ticker in df["ticker"].unique():
             ticker_data = df[df["ticker"] == ticker]
-            for i in range(len(ticker_data) - window_size + 1):
+            for i in tqdm(range(len(ticker_data) - window_size + 1)):
                 window = ticker_data.iloc[i : i + window_size].copy()
                 if target_aggregation_method in ["first", "last"]:
                     target_data = window.iloc[-horizon:][self.cfg.returns.selling_at]

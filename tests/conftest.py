@@ -9,9 +9,9 @@ from invest_ai.data_collection.news_store import NewsStore
 from invest_ai.data_collection.preprocess import DataPreprocessor
 from invest_ai.simulation.bank import Bank
 
-FINANCE_DATA_PATH = Path("__file__").parent / "data/test_finance_store.pkl"
-NEWS_DATA_PATH = Path("__file__").parent / "data/test_news_store.csv"
-CONFIGS_FILE = Path("__file__").parent / "test_data_configs.yaml"
+FINANCE_DATA_PATH = Path(__file__).parent.absolute() / "data/test_finance_store.pkl"
+NEWS_DATA_PATH = Path(__file__).parent.absolute() / "data/test_news_store.csv"
+CONFIGS_FILE = Path(__file__).parent.absolute() / "test_data_configs.yaml"
 
 
 # Setup fixtures for reusable components

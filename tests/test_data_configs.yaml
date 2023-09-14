@@ -23,15 +23,17 @@ numerical_features_scaling:
 missing_value_config:
   strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
 
-tickers: ['GOOGL', 'AAPL']
+stocks: ['GOOGL', 'AAPL']
 
 
-train_period:
-  start_date: '2023-08-01'
-  end_date: '2023-08-10'
-val_period:
-  start_date: '2023-08-11'
-  end_date: '2023-08-20'
-test_period:
+
+time_frames:
+  train:
+    start_date: '2023-08-01'
+    end_date: '2023-08-10'
+  val:
+    start_date: '2023-08-11'
+    end_date: '2023-08-20'
+  test:
     start_date: '2023-08-21'
     end_date: '2023-08-30'

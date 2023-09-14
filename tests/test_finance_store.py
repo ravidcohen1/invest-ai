@@ -7,8 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from invest_ai.data_collection.finance_store import FinanceStore
-
-FINANCE_DATA_PATH = Path("__file__").parent / "data/test_finance_store.pkl"
+from tests.conftest import FINANCE_DATA_PATH
 
 
 # Test if yf.download is called when the file does not exist
@@ -78,15 +77,6 @@ import pytest
 
 
 def test_finance_store_input_validation(finance_store):
-    # Test invalid min_date and max_date types
-    with pytest.raises(TypeError):
-        FinanceStore(
-            min_date="2023-08-07",
-            max_date="2023-08-12",
-            supported_tickers=["AAPL", "GOOGL"],
-            data_path=Path("some_path"),
-        )
-
     # Test min_date greater than max_date
     with pytest.raises(ValueError):
         FinanceStore(
@@ -115,11 +105,6 @@ def test_finance_store_input_validation(finance_store):
         )
 
     fs = finance_store
-    # Test invalid start_date and end_date types in get_finance_for_dates
-    with pytest.raises(TypeError):
-        fs.get_finance_for_dates(
-            start_date="2023-08-07", end_date=date(2023, 8, 9), stock_tickers=["AAPL"]
-        )
 
     # Test start_date greater than end_date in get_finance_for_dates
     with pytest.raises(ValueError):

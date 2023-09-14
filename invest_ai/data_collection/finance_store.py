@@ -9,6 +9,7 @@ import pandas as pd
 import yfinance as yf
 
 from invest_ai import configs as cfg
+from invest_ai.utils.string import str_to_date
 
 YEARLY_10_PERCENT = "YEARLY_10_PERCENT"
 
@@ -20,11 +21,12 @@ class FinanceStore:
 
     def __init__(
         self,
-        min_date: datetime.date = cfg.MIN_SUPPORTED_DATE,
-        max_date: datetime.date = cfg.MAX_SUPPORTED_DATE,
+        min_date: Union[str, datetime.date] = cfg.MIN_SUPPORTED_DATE,
+        max_date: Union[str, datetime.date] = cfg.MAX_SUPPORTED_DATE,
         supported_tickers: Sequence[str] = cfg.SUPPORTED_TICKERS,
         data_path: Path = cfg.FINANCE_DATA_PATH,
     ):
+        min_date, max_date = self._fix_dates(min_date, max_date)
         self._validate_init_input(min_date, max_date, supported_tickers, data_path)
         self.data_path = data_path
         self.min_date = min_date
@@ -34,6 +36,13 @@ class FinanceStore:
             self.df = self._generate_10_percent_stock()
         else:
             self.df = self._load_data()
+
+    def _fix_dates(self, min_date, max_date):
+        if isinstance(min_date, str):
+            min_date = str_to_date(min_date)
+        if isinstance(max_date, str):
+            max_date = str_to_date(max_date)
+        return min_date, max_date
 
     def _generate_10_percent_stock(self):
         # Convert start_date and end_date to pandas Timestamp objects
@@ -69,7 +78,7 @@ class FinanceStore:
         :return: DataFrame containing finance data.
         :rtype: pd.DataFrame
         """
-        if os.path.exists(self.data_path):
+        if self.data_path.exists():
             data = pd.read_pickle(self.data_path)
         else:
             data = self._download_stock_prices(
@@ -132,6 +141,7 @@ class FinanceStore:
         :return: DataFrame containing finance data for the specific stock(s) and time periods.
         :rtype: pd.DataFrame
         """
+        start_date, end_date = self._fix_dates(start_date, end_date)
         self._validate_get_finance_for_dates_input(start_date, end_date, stock_tickers)
 
         # Slice the DataFrame to match the date range
