@@ -431,10 +431,10 @@ def visualise_this(cfg):
     print()
 
 
-@hydra.main(config_path="../configs", config_name="configs")
-def main(cfg: DictConfig) -> None:
-    visualise_this(cfg)
-
-
-if __name__ == "__main__":
-    main()
+# @hydra.main(config_path="../configs", config_name="configs")
+# def main(cfg: DictConfig) -> None:
+#     visualise_this(cfg)
+#
+#
+# if __name__ == "__main__":
+#     main()
