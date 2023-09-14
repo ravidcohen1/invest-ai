@@ -15,7 +15,20 @@ def list_methods(file: str):
 def list_files(root: Path):
     output = []
     for r, _, files in os.walk(root):
-        if any(skip in r for skip in ["/.", "__pycache__", "playground", "data"]):
+        if any(
+            skip in r
+            for skip in [
+                "/.",
+                "__pycache__",
+                "playground",
+                "data",
+                "outputs",
+                "tests",
+                "wandb",
+                "notebooks",
+                "logs",
+            ]
+        ):
             continue
         output.append(f"Dir: {r}")
         for f in files:

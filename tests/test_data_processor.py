@@ -3,36 +3,6 @@ from datetime import date, datetime
 from pathlib import Path
 from shutil import copy2
 
-import pandas as pd
-import pytest
-from omegaconf import OmegaConf
-
-from invest_ai.data_collection.finance_store import FinanceStore
-from invest_ai.data_collection.news_store import NewsStore
-from invest_ai.data_collection.preprocess import DataPreprocessor
-
-NEWS_DATA_PATH = Path("__file__").parent / "data/test_news_store.csv"
-FINANCE_DATA_PATH = Path("__file__").parent / "data/test_finance_store.pkl"
-
-
-# Setup fixtures for reusable components
-@pytest.fixture
-def setup_news_store():
-    ns = NewsStore(NEWS_DATA_PATH, backup=False)
-    return ns
-
-
-@pytest.fixture(scope="module")
-def finance_store():
-    fs = FinanceStore(data_path=FINANCE_DATA_PATH)
-    return fs
-
-
-@pytest.fixture
-def setup_data_preprocessor(setup_news_store, finance_store):
-    config = OmegaConf.load("test_data_configs.yaml")
-    return DataPreprocessor(finance_store, setup_news_store, config)
-
 
 def test_prepare_datasets(setup_data_preprocessor):
     dp = setup_data_preprocessor
@@ -527,9 +497,7 @@ def validate_weekdays_make_sense(list_of_days):
     ), f"The weekdays are not in the correct consecutive order. Got {list_of_days}"
 
 
-def test_preprocess_end_to_end(
-    setup_data_preprocessor, setup_news_store, finance_store
-):
+def test_preprocess_end_to_end(setup_data_preprocessor, news_store, finance_store):
     dp = setup_data_preprocessor
 
     # Define the test parameters
@@ -589,7 +557,7 @@ def test_preprocess_end_to_end(
 
         start_date = dates[0]
         end_date = dates[-1] + timedelta(days=1)
-        news_df = setup_news_store.get_news_for_dates(
+        news_df = news_store.get_news_for_dates(
             start_date, end_date, drop_articles=True
         )
         titles = news_df.groupby("date")["title"].agg(list)[:-1]

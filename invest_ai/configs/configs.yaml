@@ -4,8 +4,45 @@ defaults:
   - data: next_day_opening
 
 
+budget:
+  initial_amount: 10000
+  monthly_budget: 1000
+
+experiment_name: "random_buy_Apple"
+investor:
+#  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
+  _target_: invest_ai.investor.random_investor.RandomInvestor
+#  _target_: invest_ai.investor.never_buy.NeverBuyInvestor
+
+finance_store:
+  _target_: invest_ai.data_collection.finance_store.FinanceStore
+  min_date: ${simulation.min_date}
+  max_date: ${simulation.max_date}
+  data_path: ${finance_data_path}
+  supported_tickers: ${simulation.stocks}
+
+simulation:
+  min_date:
+    _target_: datetime.date
+    year: 2021
+    month: 10
+    day: 1
+  max_date:
+    _target_: datetime.date
+    year: 2023
+    month: 9
+    day: 1
+  stocks: ["AAPL"]
+#  stocks: ["SPY"]
+#    - "^GSPC"  # S&P 500
+#    - "AAPL"  # Apple Inc.
+#    - "MSFT"  # Microsoft Corporation
+
 data_path: "/Users/user/PycharmProjects/invest-ai/data"
-finance_data_path: "${data_path}/finance_store.pkl"
+finance_data_path:
+  _target_: pathlib.Path
+  _args_: ["${data_path}/finance_store.pkl"]
+
 news_data_path: "${data_path}/news_store.csv"
 
 min_supported_date: "2007-01-01"
@@ -32,3 +69,4 @@ supported_tickers:
   - "ASML"  # ASML Holding N.V.
   - "AMD"  # Advanced Micro Devices, Inc.
   - "^GSPC"  # S&P 500
+  - "SPY"  # SPDR S&P 500 ETF Trust

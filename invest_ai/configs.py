@@ -36,5 +36,6 @@ SUPPORTED_TICKERS = [
     "ASML",  # ASML Holding N.V.
     "AMD",  # Advanced Micro Devices, Inc.
     "^GSPC",  # S&P 500
+    "SPY",  # SPDR S&P 500 ETF Trust
 ]
 # Default path for the CSV file to store finance data
