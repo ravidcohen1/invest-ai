@@ -1,0 +1,18 @@
+# general_config.yaml
+
+defaults:
+  - experiment: next_day_opening
+
+
+# inputs
+root_path: "/Users/user/PycharmProjects/invest-ai"
+data_path: "${root_path}/data"
+finance_data_path: "${data_path}/finance_store.pkl"
+news_data_path: "${data_path}/news_store.csv"
+
+# outputs
+output_path: "${root_path}/results"
+experiment_path: "${output_path}/${experiment.experiment_name}"
+processed_data_path: "${experiment_path}/processed_data"
+fine_tuning_path: "${experiment_path}/fine_tuning"
+inference_path: "${experiment_path}/inference"

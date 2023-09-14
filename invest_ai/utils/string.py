@@ -52,11 +52,3 @@ def date_to_str(date_obj: date) -> str:
     :rtype: str
     """
     return date_obj.strftime("%Y-%m-%d")
-
-
-# Test the utility functions
-test_str = "2023-09-09"
-test_date = str_to_date(test_str)
-test_str_back = date_to_str(test_date)
-
-print(test_date, test_str_back)

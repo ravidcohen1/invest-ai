@@ -1,15 +1,17 @@
 # Implementation of the NewsStore class based on the provided requirements and code snippets
 
+import datetime
 import glob
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from shutil import copy2
 from typing import Optional, Union
 
 import pandas as pd
+import pytz
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -25,67 +27,58 @@ class NewsStore:
     A class to manage the storage and retrieval of news articles and their metadata.
     """
 
-    def __init__(self, csv_file_path: Optional[Path] = cfg.NEW_DATA_PATH, backup=True):
-        self.csv_file_path = csv_file_path
+    def __init__(self, data_path: Optional[Path] = cfg.NEW_DATA_PATH, backup=True):
+        self.data_path = data_path
         self.df = self._load_data(backup)
 
     def _load_data(self, backup) -> pd.DataFrame:
-        """Load data from the CSV file into a DataFrame."""
-        if os.path.exists(self.csv_file_path):
+        """Load data from the pkl file into a DataFrame."""
+        if os.path.exists(self.data_path):
             if backup:
                 self._backup_data()
-            df = pd.read_csv(self.csv_file_path)
+            df = pd.read_pickle(self.data_path)
             print(f"Data loaded. DataFrame shape: {df.shape}")
             return df
         else:
-            return pd.DataFrame(columns=["date", "url", "source", "title", "article"])
+            return pd.DataFrame(
+                columns=["title", "article", "time_utc", "time_et", "date_utc", "date"]
+            )
 
     def _save_data(self) -> None:
-        """Save the DataFrame to a CSV file."""
-        self.df.to_csv(self.csv_file_path, index=False)
-        print(f"Data saved to {self.csv_file_path}. DataFrame shape: {self.df.shape}")
+        """Save the DataFrame to a pkl file."""
+        self.df.to_pickle(self.data_path, index=False)
+        print(f"Data saved to {self.data_path}. DataFrame shape: {self.df.shape}")
 
     def _backup_data(self) -> None:
-        """Create a backup of the current CSV file."""
-        data_folder = self.csv_file_path.parent
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        backup_filename = data_folder / f"news_store_backup_{timestamp}.csv"
+        """Create a backup of the current pkl file."""
+        data_folder = self.data_path.parent
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        backup_filename = data_folder / f"news_store_backup_{timestamp}.pkl"
 
-        copy2(self.csv_file_path, backup_filename)
+        copy2(self.data_path, backup_filename)
 
-    def _validate_inputs(self, start_date_str: str, end_date_str: str):
-        validate_date_format(start_date_str)
-        validate_date_format(end_date_str)
-        assert end_date_str > start_date_str
+    @staticmethod
+    def _validate_inputs(start_date: datetime.date, end_date: datetime.date):
+        assert isinstance(start_date, datetime.date)
+        assert isinstance(end_date, datetime.date)
+        assert end_date > start_date
 
     def get_news_for_dates(
         self,
-        start_date: Union[str, datetime.date],
-        end_date: Union[str, datetime.date],
+        start_date: datetime.date,
+        end_date: datetime.date,
         fetch_missing_dates: bool = False,
         drop_articles: bool = False,
     ) -> pd.DataFrame:
         """Fetch or retrieve news for a date range."""
-        from invest_ai.utils.string import date_to_str, str_to_date
 
-        if isinstance(start_date, str):
-            start_date_str = start_date
-            start_date = str_to_date(start_date)
-        else:
-            start_date_str = date_to_str(start_date)
-        if isinstance(end_date, str):
-            end_date_str = end_date
-            end_date = str_to_date(end_date)
-        else:
-            end_date_str = date_to_str(end_date)
-
-        self._validate_inputs(start_date_str, end_date_str)
+        self._validate_inputs(start_date, end_date)
 
         # Filter existing records for the date range
-
         result_df = self.df[
-            (self.df["date"] >= start_date_str) & (self.df["date"] <= end_date_str)
+            (self.df["date"] >= start_date) & (self.df["date"] <= end_date)
         ]
+
         if not fetch_missing_dates:
             if drop_articles:
                 result_df.drop(columns=["article"], inplace=True)
@@ -94,12 +87,13 @@ class NewsStore:
         # Identify missing dates and fetch records for them
         existing_dates = set(result_df["date"])
         all_dates = {
-            str(start_date + timedelta(days=i))
+            start_date + timedelta(days=i)
             for i in range((end_date - start_date).days + 1)
         }
         missing_dates = sorted(
             all_dates - existing_dates, reverse=True
         )  # Most recent to oldest
+
         print(f"{len(missing_dates)} days missing")
         # Initialize progress tracking variables
         start_time = time.time()
@@ -113,7 +107,6 @@ class NewsStore:
                 daily_df["url"]
             )  # .progress_apply(self._get_content_for_url)
             daily_df = pd.concat([daily_df, daily_content], axis=1)
-            daily_df["date"] = date
             total_fetched += len(daily_df)
             if len(daily_df) > 0:
                 self.df = pd.concat([self.df, daily_df])
@@ -132,7 +125,7 @@ class NewsStore:
             )
 
         result_df = self.df[
-            (self.df["date"] >= start_date_str) & (self.df["date"] <= end_date_str)
+            (self.df["date"] >= start_date) & (self.df["date"] <= end_date)
         ]
         if drop_articles:
             result_df.drop(columns=["article"], inplace=True)
@@ -153,10 +146,9 @@ class NewsStore:
         return pd.DataFrame(results)
 
     @staticmethod
-    def _get_urls(date: str) -> pd.DataFrame:
+    def _get_urls(date: datetime.date) -> pd.DataFrame:
         """Fetch URLs of articles for a given date."""
-        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
-        url = f"https://techcrunch.com/{date_obj.strftime('%Y/%m/%d')}"
+        url = f"https://techcrunch.com/{date.strftime('%Y/%m/%d')}"
         content = requests.get(url, timeout=120).text
         urls = [
             a["href"]
@@ -168,13 +160,32 @@ class NewsStore:
 
     @staticmethod
     def _get_content_for_url(url: str) -> pd.Series:
-        """Fetch the title and article content for a given URL."""
+        """
+        Fetch the title, article content, and publication time for a given URL.
+
+        :param url: The URL of the webpage to scrape.
+        :type url: str
+        :return: A Pandas Series containing the title, article, and various time and date formats.
+        :rtype: pd.Series
+        """
         try:
             content = requests.get(url).text
+            with open("content.txt", "w", encoding="utf-8") as file:
+                file.write(content)
             soup = BeautifulSoup(content, features="html.parser")
         except Exception as e:
             print(str(e))
-            return pd.Series({"title": None, "article": None})
+            return pd.Series(
+                {
+                    "title": None,
+                    "article": None,
+                    "time_utc": None,
+                    "time_et": None,
+                    "date_utc": None,
+                    "date": None,
+                }
+            )
+
         try:
             article_div = soup.find("div", {"class": "article-content"})
             article = " ".join(
@@ -184,16 +195,54 @@ class NewsStore:
             print(str(e))
             article = None
 
-        # Extract title
         try:
-            title = soup.find("h1").text  # assuming the title is in an h1 tag
+            title = soup.find("h1").text
         except Exception as e:
             print(str(e))
             title = None
 
-        return pd.Series({"title": title, "article": article})
+        try:
+            pub_time_meta = soup.find("meta", {"property": "article:published_time"})
+            pub_time_utc_str = pub_time_meta["content"]
+            time_utc = datetime.datetime.fromisoformat(pub_time_utc_str)
+            time_et = time_utc.astimezone(pytz.timezone("US/Eastern"))
+
+            date_utc = datetime.date(time_utc.year, time_utc.month, time_utc.day)
+            date_et = datetime.date(time_et.year, time_et.month, time_et.day)
+
+        except Exception as e:
+            print(str(e))
+            time_utc = None
+            time_et = None
+            date_utc = None
+            date_et = None
+
+        return pd.Series(
+            {
+                "title": title,
+                "article": article,
+                "time_utc": time_utc,
+                "time_et": time_et,
+                "date_utc": date_utc,
+                "date": date_et,
+            }
+        )
+
+    # Example usage (Replace with actual URL)
+    # result = _get_content_for_url("https://example.com")
+    # print(result)
 
 
 if __name__ == "__main__":
-    news_store = NewsStore()
-    news_store.get_news_for_dates("2000-01-01", "2023-09-01", fetch_missing_dates=True)
+    """
+    todo
+    fix tests
+    change date col to str to be backward compatible
+
+    """
+    news_store = NewsStore(
+        data_path=Path(
+            "/Users/user/PycharmProjects/invest-ai/data/news_store_with_time.pkl"
+        )
+    )
+    news_store.get_news_for_dates("2007-01-01", "2007-01-05", fetch_missing_dates=True)

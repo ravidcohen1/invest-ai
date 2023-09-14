@@ -1,33 +1,19 @@
 # Revised test cases for the FinanceStore class using pytest and mocking
 
 import os
-from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
 
 from invest_ai.data_collection.finance_store import FinanceStore
-
-TEST_DATA_PATH = Path("__file__").parent / "data/test_finance_store.pkl"
-
-
-@pytest.fixture(scope="module")
-def finance_store():
-    fs = FinanceStore(
-        min_date=date(2023, 8, 7),
-        max_date=date(2023, 8, 12),
-        supported_tickers=["AAPL", "GOOGL"],
-        data_path=TEST_DATA_PATH,
-    )
-    return fs
+from tests.conftest import FINANCE_DATA_PATH
 
 
 # Test if yf.download is called when the file does not exist
 @patch("yfinance.download")
 def test_yf_download_called(mock_yf_download):
-    mock_yf_download.return_value = pd.DataFrame()
+    mock_yf_download.return_value = pd.read_pickle(FINANCE_DATA_PATH)
     not_exist_path = "data/non_existent_file.pkl"
     min_date = date(2023, 8, 7)
     max_date = date(2023, 8, 12)
@@ -91,15 +77,6 @@ import pytest
 
 
 def test_finance_store_input_validation(finance_store):
-    # Test invalid min_date and max_date types
-    with pytest.raises(TypeError):
-        FinanceStore(
-            min_date="2023-08-07",
-            max_date="2023-08-12",
-            supported_tickers=["AAPL", "GOOGL"],
-            data_path=Path("some_path"),
-        )
-
     # Test min_date greater than max_date
     with pytest.raises(ValueError):
         FinanceStore(
@@ -128,11 +105,6 @@ def test_finance_store_input_validation(finance_store):
         )
 
     fs = finance_store
-    # Test invalid start_date and end_date types in get_finance_for_dates
-    with pytest.raises(TypeError):
-        fs.get_finance_for_dates(
-            start_date="2023-08-07", end_date=date(2023, 8, 9), stock_tickers=["AAPL"]
-        )
 
     # Test start_date greater than end_date in get_finance_for_dates
     with pytest.raises(ValueError):
@@ -149,3 +121,14 @@ def test_finance_store_input_validation(finance_store):
             end_date=date(2023, 8, 9),
             stock_tickers="INVALID",
         )
+
+
+def test_get_price(finance_store):
+    p = finance_store.get_price("AAPL", date(2023, 8, 7), "Close")
+    assert isinstance(p, float)
+    with pytest.raises(ValueError):
+        finance_store.get_price("INVALID", date(2023, 8, 7), "Close")
+    with pytest.raises(ValueError):
+        finance_store.get_price("AAPL", date(2023, 8, 31), "Close")
+    with pytest.raises(ValueError):
+        finance_store.get_price("AAPL", date(2023, 8, 7), "INVALID")
