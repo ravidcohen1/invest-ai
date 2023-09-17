@@ -36,6 +36,8 @@ class Simulator:
         """
 
         status = self.bank.get_status()
+        value_before_trading = self.bank.get_total_value()
+
         if status.date.day == 1:
             if self.monthly_budget > 0:
                 self.bank.deposit(self.monthly_budget)
@@ -43,6 +45,12 @@ class Simulator:
         available_stocks = self.bank.get_available_stocks_and_prices()
         if available_stocks is None:
             new_status = self.bank.daily_update()
+            value_after_trading = self.bank.get_total_value()
+            if value_after_trading < value_before_trading:
+                print()
+                print("day", status.date.weekday())
+                print("SPY", new_status.portfolio["SPY"])
+                print()
             return new_status
         decision = self.investor.make_decision(status, available_stocks)
 
@@ -54,6 +62,15 @@ class Simulator:
 
         new_status = self.bank.daily_update()
 
+        value_after_trading = self.bank.get_total_value()
+        if value_after_trading < value_before_trading:
+            print()
+            print("sell", decision.sell)
+            print("buy", decision.buy)
+            print("day", status.date.weekday())
+            print("SPY", new_status.portfolio["SPY"])
+            decision = self.investor.make_decision(status, available_stocks)
+            v = self.bank.get_total_value()
         return new_status
 
     def finalize(self) -> List[Status]:

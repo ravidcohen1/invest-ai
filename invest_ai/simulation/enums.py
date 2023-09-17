@@ -61,3 +61,5 @@ class Decision:
         """
         self.buy = buy or {}
         self.sell = sell or {}
+        self.buy = {k: v for k, v in self.buy.items() if v > 0}
+        self.sell = {k: v for k, v in self.sell.items() if v > 0}

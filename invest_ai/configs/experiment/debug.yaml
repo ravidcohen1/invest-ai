@@ -1,19 +1,22 @@
-experiment_name: "next_day_opening"
+experiment_name: "debug"
 
 stocks: ['SPY']
 time_frames:
   train:
-    start_date: '2008-01-01'
-    end_date: '2019-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   val:
-    start_date: '2019-10-01'
-    end_date: '2021-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   test:
-      start_date: '2021-10-01'
-      end_date: '2023-09-01'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
+
 
 investor:
-  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['very good']
+  sell_labels: ['very bad']
 #  _target_: invest_ai.investor.random_investor.RandomInvestor
 #  _target_: invest_ai.investor.never_buy.NeverBuyInvestor
 
@@ -21,6 +24,9 @@ predictor:
   _target_: invest_ai.return_predictor.llm_predictor.LLMReturnPredictor
   epochs: 20
   model: babbage-002 # could be davinci-002, babbage-002 or gpt-3.5-turbo-0613
+  caching_dir: ${fine_tuning_path}
+  max_budget: 20
+  labels: ${experiment.target_binning.labels}
 
 
 budget:

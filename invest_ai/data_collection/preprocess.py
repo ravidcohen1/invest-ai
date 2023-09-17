@@ -60,7 +60,17 @@ class DataPreprocessor:
         print(
             f"Done! Train shape: {train_df.shape}, Val shape: {val_df.shape}, Test shape: {test_df.shape}"
         )
-        return train_df, val_df, test_df
+        dfs = [train_df, val_df, test_df]
+        for i, subset in enumerate(["train", "val", "test"]):
+            num_nulls = dfs[i]["target"].isnull().sum()
+            print(f"{subset} target nulls: {num_nulls}")
+            if num_nulls > 10:
+                raise ValueError(f"{subset} target nulls: {num_nulls}")
+            elif num_nulls > 0:
+                print("Removing nulls...")
+                dfs[i] = dfs[i][dfs[i]["target"].notnull()]
+
+        return dfs
 
     def preprocess(self, start_date, end_date, train: bool) -> pd.DataFrame:
         finance_df = self.finance_store.get_finance_for_dates(
