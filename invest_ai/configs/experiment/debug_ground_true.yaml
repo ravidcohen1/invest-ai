@@ -1,4 +1,5 @@
-experiment_name: "debug_ground_true"
+experiment_name: debug_ground_true
+tags: ['debug', 'benchmark', 'ground_true']
 
 stocks: ['SPY']
 time_frames:
@@ -17,8 +18,6 @@ investor:
   _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
   buy_labels: ['very good']
   sell_labels: ['very bad']
-#  _target_: invest_ai.investor.random_investor.RandomInvestor
-#  _target_: invest_ai.investor.never_buy.NeverBuyInvestor
 
 predictor:
   _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
@@ -34,6 +33,7 @@ bank:
   initial_amount: ${experiment.budget.initial_amount}
   buying_at: open
   selling_at: open
+  trading_on_weekend: true
 
 returns:
   horizon: 1  # Number of days for prediction

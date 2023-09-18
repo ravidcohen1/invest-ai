@@ -36,7 +36,6 @@ class Simulator:
         """
 
         status = self.bank.get_status()
-        value_before_trading = self.bank.get_total_value()
 
         if status.date.day == 1:
             if self.monthly_budget > 0:
@@ -45,12 +44,6 @@ class Simulator:
         available_stocks = self.bank.get_available_stocks_and_prices()
         if available_stocks is None:
             new_status = self.bank.daily_update()
-            value_after_trading = self.bank.get_total_value()
-            if value_after_trading < value_before_trading:
-                print()
-                print("day", status.date.weekday())
-                print("SPY", new_status.portfolio["SPY"])
-                print()
             return new_status
         decision = self.investor.make_decision(status, available_stocks)
 
@@ -62,15 +55,6 @@ class Simulator:
 
         new_status = self.bank.daily_update()
 
-        value_after_trading = self.bank.get_total_value()
-        if value_after_trading < value_before_trading:
-            print()
-            print("sell", decision.sell)
-            print("buy", decision.buy)
-            print("day", status.date.weekday())
-            # print("SPY", new_status.portfolio["SPY"])
-            decision = self.investor.make_decision(status, available_stocks)
-            v = self.bank.get_total_value()
         return new_status
 
     def finalize(self) -> List[Status]:
@@ -80,8 +64,3 @@ class Simulator:
         :return: A list of status objects representing the trading history.
         """
         return self.bank.get_history()
-
-
-if __name__ == "__main__":
-    fs = FinanceStore()
-    bank = Bank(initial_amount=1000, start_date=datetime.date(2023, 1, 1), fs=fs)

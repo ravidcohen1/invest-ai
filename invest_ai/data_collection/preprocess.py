@@ -392,7 +392,9 @@ class DataPreprocessor:
         strategy = self.cfg.target_binning.strategy
 
         if strategy == "equal_frequency":
-            _, bins = pd.qcut(train_df["return"], q=num_bins, retbins=True)
+            _, bins = pd.qcut(
+                train_df["return"], q=num_bins, retbins=True, duplicates="drop"
+            )
         elif strategy == "equal_width":
             _, bins = pd.cut(train_df["return"], bins=num_bins, retbins=True)
         else:

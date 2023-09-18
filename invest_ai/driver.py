@@ -38,6 +38,7 @@ def run_simulation(
         max_date=end_date,
         supported_tickers=cfg.experiment.stocks,
         data_path=Path(cfg.finance_data_path),
+        trading_on_weekend=cfg.experiment.bank.trading_on_weekend,
     )
     bank = hydra.utils.instantiate(cfg.experiment.bank, start_date=start_date, fs=fs)
     simulator = Simulator(
@@ -82,6 +83,7 @@ def preprocess_data(cfg: DictConfig) -> Tuple[Path, Path, Path]:
         max_date=end_date,
         supported_tickers=list(cfg.experiment.stocks),
         data_path=Path(cfg.finance_data_path),
+        trading_on_weekend=cfg.experiment.bank.trading_on_weekend,
     )
     news_store = NewsStore(csv_file_path=cfg.news_data_path, backup=False)
     dp = DataPreprocessor(fs, news_store, cfg.experiment)
@@ -121,6 +123,7 @@ def main(cfg: DictConfig) -> None:
         project="invest-ai",
         name=cfg.experiment.experiment_name,
         config=OmegaConf.to_container(cfg),
+        tags=cfg.experiment.tags,
     )
     run_simulations(cfg, investor)
 

@@ -13,6 +13,7 @@ class Bank:
         initial_amount: float = 0.0,
         buying_at: str = "open",
         selling_at: str = "close",
+        trading_on_weekend: bool = False,
     ):
         """
         Initialize a Bank object.
@@ -22,6 +23,7 @@ class Bank:
         :param initial_amount: The initial amount of cash to deposit.
         :param buying_at: Default metric at which to buy ('open', 'close', etc.).
         :param selling_at: Default metric at which to sell ('open', 'close', etc.).
+        :param trading_on_weekend: Whether to allow trading on weekends.
         """
         self._date = start_date
         if self.is_weekend():
@@ -35,6 +37,7 @@ class Bank:
         self._history: List[Status] = []
         self.buying_at = buying_at
         self.selling_at = selling_at
+        self.trading_on_weekend = trading_on_weekend
 
     def buy(self, symbol: str, shares: int):
         """
@@ -90,7 +93,7 @@ class Bank:
             ), "Bank needs to be updated by the end of each day."
         self._history.append(self.get_status())
         self._date += datetime.timedelta(days=1)
-        return self._history[-1]
+        return self.get_status()
 
     def get_status(self):
         return Status(
@@ -101,15 +104,16 @@ class Bank:
             total_deposits=self.total_deposits,
         )
 
-    def get_total_value(self) -> float:
+    def get_total_value(self, metric=None) -> float:
         """
         Retrieve the total value of the bank.
 
         :return: The total value of the bank.
         """
+        metric = metric or self.selling_at
         total = self._cash
         for symbol, shares in self._portfolio.items():
-            total += self.fs.get_price(symbol, self._date) * shares
+            total += self.fs.get_price(symbol, self._date, metric=metric) * shares
         return total
 
     def is_weekend(self) -> bool:
@@ -172,7 +176,10 @@ class Bank:
             for_date, for_date, self.fs.supported_tickers, melt=True
         )
         if len(daily_data) == 0:
-            return self.get_available_stocks_and_prices(
-                for_date - datetime.timedelta(days=1)
-            )
+            if self.trading_on_weekend:
+                return self.get_available_stocks_and_prices(
+                    for_date - datetime.timedelta(days=1)
+                )
+            else:
+                return None
         return daily_data.set_index("ticker")[at].to_dict()

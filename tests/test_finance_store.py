@@ -132,3 +132,27 @@ def test_get_price(finance_store):
         finance_store.get_price("AAPL", date(2023, 8, 31), "Close")
     with pytest.raises(ValueError):
         finance_store.get_price("AAPL", date(2023, 8, 7), "INVALID")
+
+
+from pandas.tseries.offsets import BDay
+
+
+# New test function to check for missing dates
+def test_missing_dates(finance_store, finance_store_weekends):
+    # Test for weekday-only trading instance
+    result_weekday = finance_store.get_finance_for_dates(
+        start_date=date(2023, 8, 1), end_date=date(2023, 8, 29), stock_tickers=["AAPL"]
+    )
+    expected_dates_weekday = pd.bdate_range(start="2023-08-01", end="2023-08-29")
+    assert not set(expected_dates_weekday) - set(
+        result_weekday.index
+    )  # No missing business dates
+
+    # Test for weekend trading instance
+    result_weekend = finance_store_weekends.get_finance_for_dates(
+        start_date=date(2023, 8, 1), end_date=date(2023, 8, 29), stock_tickers=["AAPL"]
+    )
+    expected_dates_weekend = pd.date_range(start="2023-08-01", end="2023-08-29")
+    assert not set(expected_dates_weekend) - set(
+        result_weekend.index
+    )  # No missing dates including weekends

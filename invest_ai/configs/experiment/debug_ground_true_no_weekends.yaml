@@ -1,5 +1,5 @@
-experiment_name: debug_always_buy
-tags: ['debug', 'benchmark', 'always_buy']
+experiment_name: debug_ground_true_no_weekends
+tags: ['debug', 'benchmark', 'ground_true', 'no_weekends']
 
 stocks: ['SPY']
 time_frames:
@@ -14,13 +14,14 @@ time_frames:
     end_date: '2023-09-01'
 
 
-predictor:
-  _target_: invest_ai.return_predictor.baselines.RandomReturnPredictor
-  labels: ${experiment.target_binning.labels}
-
 investor:
-  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['very good']
+  sell_labels: ['very bad']
 
+predictor:
+  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+  labels: ${experiment.target_binning.labels}
 
 
 budget:
@@ -32,7 +33,7 @@ bank:
   initial_amount: ${experiment.budget.initial_amount}
   buying_at: open
   selling_at: open
-  trading_on_weekend: true
+  trading_on_weekend: false
 
 returns:
   horizon: 1  # Number of days for prediction

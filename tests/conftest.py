@@ -30,6 +30,19 @@ def finance_store():
         max_date=date(2023, 8, 29),
         supported_tickers=["AAPL", "GOOGL"],
         data_path=FINANCE_DATA_PATH,
+        trading_on_weekend=False,
+    )
+    return fs
+
+
+@pytest.fixture(scope="module")
+def finance_store_weekends():
+    fs = FinanceStore(
+        min_date=date(2023, 8, 1),
+        max_date=date(2023, 8, 29),
+        supported_tickers=["AAPL", "GOOGL"],
+        data_path=FINANCE_DATA_PATH,
+        trading_on_weekend=True,
     )
     return fs
 

@@ -1,7 +1,7 @@
 # general_config.yaml
 
 defaults:
-  - experiment: debug_ground_true
+  - experiment: debug_ground_true_no_weekends
 
 
 # inputs
@@ -18,4 +18,4 @@ fine_tuning_path: "${experiment_path}/fine_tuning"
 inference_path: "${experiment_path}/inference"
 
 
-log_fine_tuning: false
+log_fine_tuning: true

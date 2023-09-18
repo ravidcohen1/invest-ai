@@ -1,38 +1,49 @@
-experiment_name: "next_day_opening"
+experiment_name: debug_llm
+tags: ['debug', 'benchmark', 'llm', 'no_weekends']
 
 stocks: ['SPY']
 time_frames:
   train:
-    start_date: '2008-01-01'
-    end_date: '2019-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   val:
-    start_date: '2019-10-01'
-    end_date: '2021-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   test:
-      start_date: '2021-10-01'
-      end_date: '2023-09-01'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
+
 
 investor:
-  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
-#  _target_: invest_ai.investor.random_investor.RandomInvestor
-#  _target_: invest_ai.investor.never_buy.NeverBuyInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['good', 'very good']
+  sell_labels: ['bad', 'very bad']
 
 predictor:
   _target_: invest_ai.return_predictor.llm_predictor.LLMReturnPredictor
   epochs: 20
   model: babbage-002 # could be davinci-002, babbage-002 or gpt-3.5-turbo-0613
+  caching_dir: ${fine_tuning_path}
+  max_budget: 20
+  labels: ${experiment.target_binning.labels}
 
 
 budget:
   initial_amount: 10000
   monthly_budget: 1000
 
+bank:
+  _target_: invest_ai.simulation.bank.Bank
+  initial_amount: ${experiment.budget.initial_amount}
+  buying_at: open
+  selling_at: open
+  trading_on_weekend: false
 
 returns:
   horizon: 1  # Number of days for prediction
-  selling_at: 'open'  # The metric to predict. one of open, close, adj_close, high, low
+  buying_at: ${experiment.bank.buying_at}  # metric of the last day from the lookback to compare with when computing the return
+  selling_at: ${experiment.bank.selling_at}  # The metric to predict. one of open, close, adj_close, high, low
   aggregation: 'last'  # Could be 'mean', 'last', 'max', 'min' depending on your target
-  buying_at: 'open'  # metric of the last day from the lookback to compare with when computing the return
 
 features:
   lookback: 5  # Number of days to look back
