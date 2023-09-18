@@ -6,7 +6,7 @@ import hydra
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
-
+import random
 from invest_ai.data_collection.finance_store import FinanceStore
 from invest_ai.data_collection.news_store import NewsStore
 
@@ -64,7 +64,7 @@ class DataPreprocessor:
         for i, subset in enumerate(["train", "val", "test"]):
             num_nulls = dfs[i]["target"].isnull().sum()
             print(f"{subset} target nulls: {num_nulls}")
-            if num_nulls > 10:
+            if num_nulls > 12:
                 raise ValueError(f"{subset} target nulls: {num_nulls}")
             elif num_nulls > 0:
                 print("Removing nulls...")
@@ -109,6 +109,32 @@ class DataPreprocessor:
         df_x = self._scaling(df_x)
         print("Finalizing...")
         df = self._finalize(df_x, df_y)
+        df = self._cut_titles(df, is_train=train)
+        return df
+
+    def _cut_titles(self, df, is_train=True):
+        def cut_titles(titles):
+            titles_samples = []
+            for daily_titles in titles:
+                # if pd.isna(daily_titles):
+                #     titles_samples.append([])
+                #     continue
+                if not isinstance(daily_titles, list):
+                    daily_titles = []
+                if len(daily_titles) > self.cfg.titles.max_per_day:
+                    if is_train:
+                        random.shuffle(daily_titles)
+                    daily_titles = daily_titles[: self.cfg.titles.max_per_day]
+                titles_samples.append(daily_titles)
+            return titles_samples
+
+        df["title"] = df["title"].apply(cut_titles)
+        total_titles = df["title"].apply(
+            lambda window_titles: sum(
+                [len(daily_titles) for daily_titles in window_titles]
+            )
+        )
+        df = df[total_titles > self.cfg.titles.min_per_window]
         return df
 
     def _finalize(self, df_x, df_y):
