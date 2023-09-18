@@ -39,11 +39,7 @@ def run_simulation(
         supported_tickers=cfg.experiment.stocks,
         data_path=Path(cfg.finance_data_path),
     )
-    bank = Bank(
-        start_date=start_date,
-        fs=fs,
-        initial_amount=cfg.experiment.budget.initial_amount,
-    )
+    bank = hydra.utils.instantiate(cfg.experiment.bank, start_date=start_date, fs=fs)
     simulator = Simulator(
         bank=bank,
         investor=investor,
@@ -105,15 +101,16 @@ def main(cfg: DictConfig) -> None:
     )
     try:
         logs = predictor.fit(train_path, val_path, test_path)
-        wandb.init(
-            project="invest-ai",
-            name=cfg.experiment.experiment_name + "-fine-tuning",
-            config=OmegaConf.to_container(cfg),
-        )
-        logs = logs.to_dict(orient="records")
-        for i, log in enumerate(logs):
-            log = {k: v for k, v in log.items() if not pd.isna(v)}
-            wandb.log(log, step=i)
+        if cfg.log_fine_tuning:
+            wandb.init(
+                project="invest-ai",
+                name=cfg.experiment.experiment_name + "-fine-tuning",
+                config=OmegaConf.to_container(cfg),
+            )
+            logs = logs.to_dict(orient="records")
+            for i, log in enumerate(logs):
+                log = {k: v for k, v in log.items() if not pd.isna(v)}
+                wandb.log(log, step=i)
         investor = hydra.utils.instantiate(cfg.experiment.investor, predictor=predictor)
     except Exception as e:
         print(e)

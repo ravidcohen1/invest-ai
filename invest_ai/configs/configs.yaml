@@ -16,3 +16,6 @@ experiment_path: "${output_path}/${experiment.experiment_name}"
 processed_data_path: "${experiment_path}/processed_data"
 fine_tuning_path: "${experiment_path}/fine_tuning"
 inference_path: "${experiment_path}/inference"
+
+
+log_fine_tuning: false

@@ -68,7 +68,7 @@ class Simulator:
             print("sell", decision.sell)
             print("buy", decision.buy)
             print("day", status.date.weekday())
-            print("SPY", new_status.portfolio["SPY"])
+            # print("SPY", new_status.portfolio["SPY"])
             decision = self.investor.make_decision(status, available_stocks)
             v = self.bank.get_total_value()
         return new_status

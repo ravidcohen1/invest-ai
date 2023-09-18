@@ -5,11 +5,15 @@ import pytest
 
 from invest_ai.simulation.bank import Bank, Status
 
+# ... (other imports and setup)
 
+
+# No changes are required for test_init
 def test_init(bank: Bank) -> None:
     assert bank is not None, "Bank should be initialized properly"
 
 
+# Update test_buy
 def test_buy(bank: Bank) -> None:
     with pytest.raises(ValueError):
         bank.buy("AAPL", 1000)
@@ -18,9 +22,12 @@ def test_buy(bank: Bank) -> None:
         bank.buy("AAPL", -1)
 
     initial_cash = bank.get_cash()
-    expected_cost = bank.get_available_stocks_and_prices()["AAPL"] * 10
+    expected_cost = (
+        bank.get_available_stocks_and_prices()["AAPL"] * 10
+    )  # Use instance variable
     initial_portfolio = bank.get_portfolio()
-    bank.buy("AAPL", 10, buy_at="open")
+
+    bank.buy("AAPL", 10)
 
     # Assert cash and portfolio changes
     assert np.isclose(
@@ -32,6 +39,7 @@ def test_buy(bank: Bank) -> None:
     ), "Purchase is not reflected in portfolio"
 
 
+# Update test_sell
 def test_sell(bank: Bank) -> None:
     with pytest.raises(ValueError):
         bank.sell("GOOGL", 1)
@@ -39,12 +47,15 @@ def test_sell(bank: Bank) -> None:
     with pytest.raises(ValueError):
         bank.sell("AAPL", -1)
 
-    bank.buy("AAPL", 10, buy_at="open")
+    bank.buy("AAPL", 10)
 
     initial_cash = bank.get_cash()
     initial_portfolio = bank.get_portfolio()
-    expected_gain = bank.get_available_stocks_and_prices(at="close")["AAPL"] * 5
-    bank.sell("AAPL", 5, sell_at="close")
+    expected_gain = (
+        bank.get_available_stocks_and_prices(at=bank.selling_at)["AAPL"] * 5
+    )  # Use instance variable
+
+    bank.sell("AAPL", 5)
 
     # Assert cash and portfolio changes
     assert np.isclose(
@@ -53,6 +64,9 @@ def test_sell(bank: Bank) -> None:
     assert (
         bank.get_portfolio()["AAPL"] == initial_portfolio["AAPL"] - 5
     ), "Portfolio was not updated properly"
+
+
+# ... (rest of the tests remain unchanged)
 
 
 def test_daily_update(bank: Bank):

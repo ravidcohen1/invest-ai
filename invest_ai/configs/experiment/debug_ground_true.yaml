@@ -29,12 +29,17 @@ budget:
   initial_amount: 10000
   monthly_budget: 1000
 
+bank:
+  _target_: invest_ai.simulation.bank.Bank
+  initial_amount: ${experiment.budget.initial_amount}
+  buying_at: open
+  selling_at: open
 
 returns:
   horizon: 1  # Number of days for prediction
-  selling_at: 'close'  # The metric to predict. one of open, close, adj_close, high, low
+  buying_at: ${experiment.bank.buying_at}  # metric of the last day from the lookback to compare with when computing the return
+  selling_at: ${experiment.bank.selling_at}  # The metric to predict. one of open, close, adj_close, high, low
   aggregation: 'last'  # Could be 'mean', 'last', 'max', 'min' depending on your target
-  buying_at: 'open'  # metric of the last day from the lookback to compare with when computing the return
 
 features:
   lookback: 5  # Number of days to look back
