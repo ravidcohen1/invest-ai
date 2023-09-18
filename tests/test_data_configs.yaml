@@ -28,7 +28,7 @@ stocks: ['GOOGL', 'AAPL']
 titles:
   max_per_day: 20
   min_per_window: 0
-  shuffle_titles_as_epochs: false
+  resample_titles: 1
 
 time_frames:
   train:

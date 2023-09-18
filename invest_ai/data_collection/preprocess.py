@@ -64,7 +64,7 @@ class DataPreprocessor:
         for i, subset in enumerate(["train", "val", "test"]):
             num_nulls = dfs[i]["target"].isnull().sum()
             print(f"{subset} target nulls: {num_nulls}")
-            if num_nulls > 12:
+            if num_nulls > 0.05 * len(dfs[i]):
                 raise ValueError(f"{subset} target nulls: {num_nulls}")
             elif num_nulls > 0:
                 print("Removing nulls...")
@@ -128,7 +128,16 @@ class DataPreprocessor:
                 titles_samples.append(daily_titles)
             return titles_samples
 
-        df["title"] = df["title"].apply(cut_titles)
+        if is_train and self.cfg.titles.resample_titles > 1:
+            new_dfs = []
+            for _ in range(self.cfg.titles.resample_titles):
+                new_df = df.copy()
+                new_df["title"] = df["title"].apply(cut_titles)
+                new_dfs.append(new_df)
+            df = pd.concat(new_dfs)
+
+        else:
+            df["title"] = df["title"].apply(cut_titles)
         total_titles = df["title"].apply(
             lambda window_titles: sum(
                 [len(daily_titles) for daily_titles in window_titles]

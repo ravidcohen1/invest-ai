@@ -1,5 +1,6 @@
-experiment_name: random
-tags: ['benchmark', 'random']
+experiment_name: llm_resample_titles
+tags: ['llm', 'no_weekends', 'short_train']
+
 stocks: ['SPY']
 time_frames:
   train:
@@ -14,11 +15,19 @@ time_frames:
 
 
 investor:
-  _target_: invest_ai.investor.random_investor.RandomInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['good', 'very good']
+  sell_labels: ['bad', 'very bad']
 
 predictor:
-  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+  _target_: invest_ai.return_predictor.llm_predictor.LLMReturnPredictor
+  epochs: 1
+  model: babbage-002 # could be davinci-002, babbage-002 or gpt-3.5-turbo-0613
+  caching_dir: ${fine_tuning_path}
+  max_budget: 2
   labels: ${experiment.target_binning.labels}
+
+
 budget:
   initial_amount: 10000
   monthly_budget: 1000
@@ -42,6 +51,11 @@ features:
   numerical_features: ['open', 'close', 'adj_close', 'high', 'low', 'volume']  # Numerical features from finance data
   drop_features_for_last_day: ['close', 'adj_close', 'high', 'low', 'volume']  # Features to drop for the last day in the lookback
 
+titles:
+  max_per_day: 2
+  min_per_window: 5
+  resample_titles: 20
+
 target_binning:
   num_bins: 5
   labels: ['very bad', 'bad', 'neutral', 'good', 'very good']
@@ -53,8 +67,3 @@ numerical_features_scaling:
 
 missing_value_config:
   strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
-
-titles:
-  max_per_day: 2
-  min_per_window: 5
-  resample_titles: 1

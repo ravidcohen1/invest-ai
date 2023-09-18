@@ -55,3 +55,9 @@ numerical_features_scaling:
 
 missing_value_config:
   strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
+
+
+titles:
+  max_per_day: 2
+  min_per_window: 5
+  resample_titles: 1
