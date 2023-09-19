@@ -1,24 +1,31 @@
-experiment_name: debug_10_percent
-tags: ['debug', 'benchmark', '10_percent']
-stocks: ['YEARLY_10_PERCENT']
+experiment_name: llm_relevant_titles
+tags: ['llm', 'no_weekends', 'short_train']
+
+stocks: ['GOOGL']
 time_frames:
   train:
-    start_date: '2023-01-03'
-    end_date: '2023-09-01'
+    start_date: '2017-09-01'
+    end_date: '2019-08-30'
   val:
-    start_date: '2023-01-03'
-    end_date: '2023-09-01'
+    start_date: '2019-09-02'
+    end_date: '2021-08-30'
   test:
-    start_date: '2023-01-03'
+    start_date: '2021-09-01'
     end_date: '2023-09-01'
 
 
 investor:
-  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['very good']
+  sell_labels: ['very bad']
 
-#predictor:
-#  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
-#  labels: ${experiment.target_binning.labels}
+predictor:
+  _target_: invest_ai.return_predictor.llm_predictor.LLMReturnPredictor
+  epochs: 1
+  model: babbage-002 # could be davinci-002, babbage-002 or gpt-3.5-turbo-0613
+  caching_dir: ${fine_tuning_path}
+  max_budget: 2
+  labels: ${experiment.target_binning.labels}
 
 
 budget:
@@ -30,7 +37,7 @@ bank:
   initial_amount: ${experiment.budget.initial_amount}
   buying_at: open
   selling_at: open
-  trading_on_weekend: true
+  trading_on_weekend: false
 
 returns:
   horizon: 1  # Number of days for prediction
@@ -43,6 +50,12 @@ features:
   textual_features: ['title', 'weekday', 'ticker']  # Textual features, could be title, ticker, article (not supported yet)
   numerical_features: ['open', 'close', 'adj_close', 'high', 'low', 'volume']  # Numerical features from finance data
   drop_features_for_last_day: ['close', 'adj_close', 'high', 'low', 'volume']  # Features to drop for the last day in the lookback
+
+titles:
+  max_per_day: 2
+  min_per_window: 5
+  resample_titles: 0
+  relevant_sample_titles: 2
 
 target_binning:
   num_bins: 5

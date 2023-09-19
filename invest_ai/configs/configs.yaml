@@ -1,7 +1,7 @@
 # general_config.yaml
 
 defaults:
-  - experiment: llm_resample_titles
+  - experiment: llm_relevant_titles
 
 
 # inputs

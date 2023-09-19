@@ -16,9 +16,9 @@ time_frames:
 investor:
   _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
 
-predictor:
-  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
-  labels: ${experiment.target_binning.labels}
+#predictor:
+#  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+#  labels: ${experiment.target_binning.labels}
 
 
 budget:

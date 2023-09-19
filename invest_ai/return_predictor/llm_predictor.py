@@ -28,6 +28,7 @@ class LLMReturnPredictor(AbstractReturnPredictor):
         caching_dir: str,
         max_budget: int,
         labels: List[str],
+        tta: bool = False,
     ):
         self.model = model
         self.epochs = epochs
@@ -37,6 +38,7 @@ class LLMReturnPredictor(AbstractReturnPredictor):
         self.labels = labels
         self.model_id, self.logs = None, None
         self.features = None
+        self.tta = tta
 
     def fit(
         self,
@@ -87,9 +89,17 @@ class LLMReturnPredictor(AbstractReturnPredictor):
         if sample_index not in self.features.index:
             return None
         prompt = self.features.loc[sample_index].prompt
+        if len(prompt) > 1 and isinstance(prompt, pd.Series):
+            if self.tta:
+                raise NotImplementedError("TTA not implemented for LLM.")
+            else:
+                prompt = prompt[0]
+
         label = create_completion(prompt, self.model_id)
         if label is not None:
-            assert label in self.labels, f"Label {label} not in {self.labels}"
+            if label not in self.labels:
+                print(f"Label {label} not in {self.labels}")
+                return None
         return label
 
     def _prepare_for_ft(self, src_path: Path) -> Path:

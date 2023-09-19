@@ -4,6 +4,7 @@ from typing import Tuple
 
 import hydra
 import pandas as pd
+import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
 import random
@@ -113,37 +114,99 @@ class DataPreprocessor:
         return df
 
     def _cut_titles(self, df, is_train=True):
-        def cut_titles(titles):
+        """
+        Process and filter article titles based on various conditions and configurations.
+
+        Assumptions:
+            - The input DataFrame `df` has a column named 'title' containing lists of lists of daily titles.
+            - The input DataFrame `df` has a column named 'keyword_counts' containing lists of lists of keyword
+              counts corresponding to each title.
+            - `self.cfg.titles.max_per_day` specifies the maximum number of titles allowed per day.
+            - `self.cfg.titles.min_per_window` specifies the minimum total number of titles required to keep a window.
+            - `self.cfg.titles.relevant_sample_titles` specifies how many times to resample and duplicate the DataFrame.
+
+        Parameters:
+            df (pd.DataFrame): DataFrame containing the article titles and their keyword counts.
+            is_train (bool, optional): Flag to indicate whether the operation is for training. Defaults to True.
+
+        Returns:
+            pd.DataFrame: The processed DataFrame.
+        """
+
+        def sample_titles(titles, keyword_counts):
+            probabilities = np.log1p(keyword_counts)
+            probabilities /= probabilities.sum()
+            sampled_titles = np.random.choice(
+                titles, size=self.cfg.titles.max_per_day, replace=False, p=probabilities
+            )
+            return list(sampled_titles)
+
+        # def cut_titles(titles):
+        #     titles_samples = []
+        #     for daily_titles in titles:
+        #         # if pd.isna(daily_titles):
+        #         #     titles_samples.append([])
+        #         #     continue
+        #         if not isinstance(daily_titles, list):
+        #             daily_titles = []
+        #         if len(daily_titles) > self.cfg.titles.max_per_day:
+        #             if is_train:
+        #                 random.shuffle(daily_titles)
+        #             daily_titles = daily_titles[: self.cfg.titles.max_per_day]
+        #         titles_samples.append(daily_titles)
+        #     return titles_samples
+
+        def cut_titles(titles, keyword_counts):
             titles_samples = []
-            for daily_titles in titles:
-                # if pd.isna(daily_titles):
-                #     titles_samples.append([])
-                #     continue
+            for daily_titles, daily_keyword_counts in zip(titles, keyword_counts):
+                # Replace NaN or non-list types with an empty list
                 if not isinstance(daily_titles, list):
-                    daily_titles = []
+                    daily_titles, daily_keyword_counts = [], []
+                # remove titles with 0 count
+                daily_titles = [
+                    t for t, c in zip(daily_titles, daily_keyword_counts) if c > 0
+                ]
+                daily_keyword_counts = [c for c in daily_keyword_counts if c > 0]
                 if len(daily_titles) > self.cfg.titles.max_per_day:
                     if is_train:
-                        random.shuffle(daily_titles)
-                    daily_titles = daily_titles[: self.cfg.titles.max_per_day]
+                        daily_titles = sample_titles(daily_titles, daily_keyword_counts)
+                    else:
+                        # Sort titles by keyword counts in descending order and take the top ones
+                        sorted_titles = [
+                            title
+                            for _, title in sorted(
+                                zip(daily_keyword_counts, daily_titles), reverse=True
+                            )
+                        ]
+                        daily_titles = sorted_titles[: self.cfg.titles.max_per_day]
                 titles_samples.append(daily_titles)
             return titles_samples
 
-        if is_train and self.cfg.titles.resample_titles > 1:
+        if is_train and self.cfg.titles.relevant_sample_titles > 1:
             new_dfs = []
-            for _ in range(self.cfg.titles.resample_titles):
+            for _ in range(self.cfg.titles.relevant_sample_titles):
                 new_df = df.copy()
-                new_df["title"] = df["title"].apply(cut_titles)
+                new_df["title"] = df.apply(
+                    lambda row: cut_titles(row["title"], row["keywords_count"]), axis=1
+                )
                 new_dfs.append(new_df)
             df = pd.concat(new_dfs)
-
         else:
-            df["title"] = df["title"].apply(cut_titles)
+            df["title"] = df.apply(
+                lambda row: cut_titles(row["title"], row["keywords_count"]), axis=1
+            )
+
         total_titles = df["title"].apply(
             lambda window_titles: sum(
                 [len(daily_titles) for daily_titles in window_titles]
             )
         )
-        df = df[total_titles > self.cfg.titles.min_per_window]
+        df = df[total_titles >= self.cfg.titles.min_per_window]
+        # remove windows without titles in the last day
+        df = df[df["title"].apply(lambda window_titles: len(window_titles[-1]) > 0)]
+        if len(df) == 0:
+            raise ValueError("No titles left after cutting")
+        df.drop(columns=["keywords_count"], inplace=True)
         return df
 
     def _finalize(self, df_x, df_y):
@@ -185,7 +248,7 @@ class DataPreprocessor:
         )
         if "ticker" not in features:
             features.append("ticker")
-        df_x = df_x[[SAMPLE_ID, "date"] + features]
+        df_x = df_x[[SAMPLE_ID, "date", "keywords_count"] + features]
         df_x_agg = df_x.groupby(["ticker", SAMPLE_ID]).agg(list).reset_index()
         df_y = df_y[["ticker", SAMPLE_ID, "return"]]
 
@@ -196,7 +259,8 @@ class DataPreprocessor:
 
     def _process_and_agg_news(self, news_df):
         news_features = list(
-            set(self.cfg.features.textual_features) & set(news_df.keys())
+            set(self.cfg.features.textual_features + ["keywords_count"])
+            & set(news_df.keys())
         )
         news_df = news_df.groupby("date")[news_features].agg(list).reset_index()
         news_df["date"] = pd.to_datetime(news_df["date"])

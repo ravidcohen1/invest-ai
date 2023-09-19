@@ -54,7 +54,7 @@ features:
 titles:
   max_per_day: 2
   min_per_window: 5
-  resample_titles: 20
+  resample_titles: 2
 
 target_binning:
   num_bins: 5

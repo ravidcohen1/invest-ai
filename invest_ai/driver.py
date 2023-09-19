@@ -56,7 +56,9 @@ def run_simulation(
         status = simulator.next_day()
         stats = status.to_dict()
         stats = {f"{k}": v for k, v in stats.items()}
-        # stats = {f"{k} - {subset}": v for k, v in stats.items()}
+        for s in cfg.experiment.stocks:
+            if s not in stats["portfolio"]:
+                stats["portfolio"][s] = 0
         wandb.log(stats, step=step)
     return step
 
@@ -85,7 +87,23 @@ def preprocess_data(cfg: DictConfig) -> Tuple[Path, Path, Path]:
         data_path=Path(cfg.finance_data_path),
         trading_on_weekend=cfg.experiment.bank.trading_on_weekend,
     )
-    news_store = NewsStore(csv_file_path=cfg.news_data_path, backup=False)
+    from invest_ai.data_collection.tickers_keywords import TICKER_KEYWORDS
+
+    keywords = []
+    for s in cfg.experiment.stocks:
+        keywords += TICKER_KEYWORDS[s]
+    news_store = NewsStore(
+        csv_file_path=cfg.news_data_path, backup=False, keywords=keywords
+    )
+    df = news_store.get_news_for_dates(start_date, end_date, fetch_missing_dates=False)
+    from invest_ai.plots.articles import plot_number_of_relevant_articles
+
+    plot_number_of_relevant_articles(
+        df,
+        dst_path=Path(cfg.experiment_path)
+        / "plots"
+        / "number_of_relevant_articles.png",
+    )
     dp = DataPreprocessor(fs, news_store, cfg.experiment)
     train_df, val_df, test_df = dp.prepare_datasets()
     os.makedirs(cfg.processed_data_path, exist_ok=True)
@@ -95,13 +113,64 @@ def preprocess_data(cfg: DictConfig) -> Tuple[Path, Path, Path]:
     return train_dst, val_dst, test_dst
 
 
+from invest_ai.plots.histograms import plot_return_histograms_by_target
+from imageio.v3 import imread
+import numpy as np
+from skimage.transform import resize
+
+
+def plot_histograms(cfg, train_path, val_path, test_path):
+    histograms = []
+    for df_path, subset in zip(
+        [train_path, val_path, test_path], ["train", "val", "test"]
+    ):
+        df = pd.read_pickle(df_path)
+        dst_path = (
+            Path(cfg.experiment_path) / "plots" / f"{subset}_returns_histogram.png"
+        )
+        plot_return_histograms_by_target(df, dst_path=dst_path, title=subset)
+        img = imread(dst_path)
+        histograms.append(img)
+
+    histograms = np.concatenate(histograms, axis=1)
+    w = 1200
+    h = int(histograms.shape[0] * w / histograms.shape[1])
+    histograms = resize(histograms, (h, w), anti_aliasing=True)
+    wandb.log({"returns_histogram": wandb.Image(histograms)})
+
+    articles_path = (
+        Path(cfg.experiment_path) / "plots" / "number_of_relevant_articles.png"
+    )
+    if articles_path.exists():
+        img = imread(articles_path)
+        wandb.log({"number_of_relevant_articles": wandb.Image(img)})
+
+    from invest_ai.plots.articles import plot_number_of_titles
+
+    titles_path_train = (
+        Path(cfg.experiment_path) / "plots" / "number_of_titles_train.png"
+    )
+    plot_number_of_titles(
+        train_path, title="Number of titles per week - train", dst=titles_path_train
+    )
+    img = imread(titles_path_train)
+    wandb.log({"number_of_titles_train": wandb.Image(img)})
+
+    titles_path_test = Path(cfg.experiment_path) / "plots" / "number_of_titles_test.png"
+    plot_number_of_titles(
+        test_path, title="Number of titles per week - test", dst=titles_path_test
+    )
+    img = imread(titles_path_test)
+    wandb.log({"number_of_titles_test": wandb.Image(img)})
+
+
 @hydra.main(config_path="configs", config_name="configs")
 def main(cfg: DictConfig) -> None:
     train_path, val_path, test_path = preprocess_data(cfg)
-    predictor: AbstractReturnPredictor = hydra.utils.instantiate(
-        cfg.experiment.predictor
-    )
-    try:
+    if "predictor" in cfg.experiment:
+        predictor: AbstractReturnPredictor = hydra.utils.instantiate(
+            cfg.experiment.predictor
+        )
         logs = predictor.fit(train_path, val_path, test_path)
         if cfg.log_fine_tuning:
             wandb.init(
@@ -113,9 +182,9 @@ def main(cfg: DictConfig) -> None:
             for i, log in enumerate(logs):
                 log = {k: v for k, v in log.items() if not pd.isna(v)}
                 wandb.log(log, step=i)
+            plot_histograms(cfg, train_path, val_path, test_path)
         investor = hydra.utils.instantiate(cfg.experiment.investor, predictor=predictor)
-    except Exception as e:
-        print(e)
+    else:
         investor = hydra.utils.instantiate(cfg.experiment.investor)
 
     wandb.init(

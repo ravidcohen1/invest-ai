@@ -26,9 +26,10 @@ missing_value_config:
 stocks: ['GOOGL', 'AAPL']
 
 titles:
-  max_per_day: 20
+  max_per_day: 100
   min_per_window: 0
-  resample_titles: 1
+  relevant_sample_titles: 1
+
 
 time_frames:
   train:

@@ -79,3 +79,36 @@ def test_get_news_for_dates(news_store):
     )
 
     # Additional checks can include verifying the source, title, or article content, if needed.
+
+
+def test_get_news_for_dates_with_keywords(news_store):
+    start_date_str = "2023-08-01"
+    end_date_str = "2023-08-30"
+    keywords = ["apple", "google", "microsoft"]
+    news_store.keywords = keywords
+
+    # Fetch news data for the date range with keywords
+    result_df = news_store.get_news_for_dates(start_date_str, end_date_str)
+
+    # Check if the result is a DataFrame
+    assert isinstance(result_df, pd.DataFrame)
+
+    # Check if the DataFrame is empty
+    assert not result_df.empty
+
+    # Check if the DataFrame has the expected columns, including "keywords_count"
+    expected_columns = ["date", "url", "source", "title", "article", "keywords_count"]
+    assert all(column in result_df.columns for column in expected_columns)
+
+    # Check if the DataFrame contains news data for the specified date range
+    result_dates = pd.to_datetime(result_df["date"]).dt.date
+    assert all(
+        start_date_str <= date <= end_date_str for date in result_dates.astype(str)
+    )
+
+    # Check if "keywords_count" is a non-negative integer
+    assert all(
+        isinstance(count, int) and count >= 0 for count in result_df["keywords_count"]
+    )
+
+    # Additional checks can include verifying the source, title, or article content, if needed.

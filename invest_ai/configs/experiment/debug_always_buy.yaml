@@ -14,9 +14,9 @@ time_frames:
     end_date: '2023-09-01'
 
 
-predictor:
-  _target_: invest_ai.return_predictor.baselines.RandomReturnPredictor
-  labels: ${experiment.target_binning.labels}
+#predictor:
+#  _target_: invest_ai.return_predictor.baselines.RandomReturnPredictor
+#  labels: ${experiment.target_binning.labels}
 
 investor:
   _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor

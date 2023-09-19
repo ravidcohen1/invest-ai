@@ -14,10 +14,12 @@ time_frames:
 
 
 investor:
-  _target_: invest_ai.investor.random_investor.RandomInvestor
+  _target_: invest_ai.investor.prediction_based_investor.PredictionBasedInvestor
+  buy_labels: ['very good']
+  sell_labels: ['very bad']
 
 predictor:
-  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+  _target_: invest_ai.return_predictor.baselines.RandomReturnPredictor
   labels: ${experiment.target_binning.labels}
 budget:
   initial_amount: 10000
