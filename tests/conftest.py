@@ -17,7 +17,7 @@ CONFIGS_FILE = Path(__file__).parent.absolute() / "test_data_configs.yaml"
 # Setup fixtures for reusable components
 @pytest.fixture
 def news_store():
-    ns = NewsStore(NEWS_DATA_PATH, backup=False)
+    ns = NewsStore(NEWS_DATA_PATH, backup=False, keywords=["is"])
     if not NEWS_DATA_PATH.exists():
         ns.get_news_for_dates("2023-08-01", "2023-08-30", fetch_missing_dates=True)
     return ns
@@ -30,6 +30,19 @@ def finance_store():
         max_date=date(2023, 8, 29),
         supported_tickers=["AAPL", "GOOGL"],
         data_path=FINANCE_DATA_PATH,
+        trading_on_weekend=False,
+    )
+    return fs
+
+
+@pytest.fixture(scope="module")
+def finance_store_weekends():
+    fs = FinanceStore(
+        min_date=date(2023, 8, 1),
+        max_date=date(2023, 8, 29),
+        supported_tickers=["AAPL", "GOOGL"],
+        data_path=FINANCE_DATA_PATH,
+        trading_on_weekend=True,
     )
     return fs
 

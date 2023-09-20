@@ -1,32 +1,42 @@
-experiment_name: "debug"
-
-stocks: ['SPY']
+experiment_name: debug_10_percent
+tags: ['debug', 'benchmark', '10_percent']
+stocks: ['YEARLY_10_PERCENT']
 time_frames:
   train:
-    start_date: '2008-01-01'
-    end_date: '2019-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   val:
-    start_date: '2019-10-01'
-    end_date: '2021-09-30'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
   test:
-      start_date: '2021-10-01'
-      end_date: '2023-09-01'
+    start_date: '2023-01-03'
+    end_date: '2023-09-01'
+
 
 investor:
   _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
-#  _target_: invest_ai.investor.random_investor.RandomInvestor
-#  _target_: invest_ai.investor.never_buy.NeverBuyInvestor
+
+#predictor:
+#  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+#  labels: ${experiment.target_binning.labels}
+
 
 budget:
   initial_amount: 10000
   monthly_budget: 1000
 
+bank:
+  _target_: invest_ai.simulation.bank.Bank
+  initial_amount: ${experiment.budget.initial_amount}
+  buying_at: open
+  selling_at: open
+  trading_on_weekend: true
 
 returns:
   horizon: 1  # Number of days for prediction
-  selling_at: 'open'  # The metric to predict. one of open, close, adj_close, high, low
+  buying_at: ${experiment.bank.buying_at}  # metric of the last day from the lookback to compare with when computing the return
+  selling_at: ${experiment.bank.selling_at}  # The metric to predict. one of open, close, adj_close, high, low
   aggregation: 'last'  # Could be 'mean', 'last', 'max', 'min' depending on your target
-  buying_at: 'open'  # metric of the last day from the lookback to compare with when computing the return
 
 features:
   lookback: 5  # Number of days to look back

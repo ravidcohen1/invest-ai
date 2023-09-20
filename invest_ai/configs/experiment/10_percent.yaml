@@ -1,0 +1,63 @@
+experiment_name: 10_percent
+tags: ['benchmark', '10_percent']
+stocks: ['YEARLY_10_PERCENT']
+time_frames:
+  train:
+    start_date: '2017-09-01'
+    end_date: '2019-08-30'
+  val:
+    start_date: '2019-09-02'
+    end_date: '2021-08-30'
+  test:
+    start_date: '2021-09-01'
+    end_date: '2023-09-01'
+
+
+investor:
+  _target_: invest_ai.investor.always_buy.AlwaysBuyInvestor
+
+#predictor:
+#  _target_: invest_ai.return_predictor.baselines.GroundTrueReturnPredictor
+#  labels: ${experiment.target_binning.labels}
+
+
+budget:
+  initial_amount: 10000
+  monthly_budget: 1000
+
+bank:
+  _target_: invest_ai.simulation.bank.Bank
+  initial_amount: ${experiment.budget.initial_amount}
+  buying_at: open
+  selling_at: open
+  trading_on_weekend: false
+
+returns:
+  horizon: 1  # Number of days for prediction
+  buying_at: ${experiment.bank.buying_at}  # metric of the last day from the lookback to compare with when computing the return
+  selling_at: ${experiment.bank.selling_at}  # The metric to predict. one of open, close, adj_close, high, low
+  aggregation: 'last'  # Could be 'mean', 'last', 'max', 'min' depending on your target
+
+features:
+  lookback: 5  # Number of days to look back
+  textual_features: ['title', 'weekday', 'ticker']  # Textual features, could be title, ticker, article (not supported yet)
+  numerical_features: ['open', 'close', 'adj_close', 'high', 'low', 'volume']  # Numerical features from finance data
+  drop_features_for_last_day: ['close', 'adj_close', 'high', 'low', 'volume']  # Features to drop for the last day in the lookback
+
+target_binning:
+  num_bins: 5
+  labels: ['very bad', 'bad', 'neutral', 'good', 'very good']
+  strategy: 'equal_frequency' # could be equal_frequency, equal_width
+
+numerical_features_scaling:
+  method: relative_scale
+  relative_to: 'first'  # Could be 'first', 'last', 'min', 'max', 'mean'
+
+missing_value_config:
+  strategy: 'drop'  # Could be 'drop', 'fill_mean', 'interpolate'
+
+
+titles:
+  max_per_day: 2
+  min_per_window: 5
+  resample_titles: 1

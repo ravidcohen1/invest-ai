@@ -7,7 +7,13 @@ from invest_ai.simulation.enums import Status
 
 class Bank:
     def __init__(
-        self, start_date: datetime.date, fs: FinanceStore, initial_amount: float = 0.0
+        self,
+        start_date: datetime.date,
+        fs: FinanceStore,
+        initial_amount: float = 0.0,
+        buying_at: str = "open",
+        selling_at: str = "close",
+        trading_on_weekend: bool = False,
     ):
         """
         Initialize a Bank object.
@@ -15,6 +21,9 @@ class Bank:
         :param start_date: The start date for the bank.
         :param fs: An instance of FinanceStore for financial data.
         :param initial_amount: The initial amount of cash to deposit.
+        :param buying_at: Default metric at which to buy ('open', 'close', etc.).
+        :param selling_at: Default metric at which to sell ('open', 'close', etc.).
+        :param trading_on_weekend: Whether to allow trading on weekends.
         """
         self._date = start_date
         if self.is_weekend():
@@ -26,20 +35,22 @@ class Bank:
         self.total_deposits = float(initial_amount)
         self._portfolio: Dict[str, int] = {}
         self._history: List[Status] = []
+        self.buying_at = buying_at
+        self.selling_at = selling_at
+        self.trading_on_weekend = trading_on_weekend
 
-    def buy(self, symbol: str, shares: int, buy_at: str = "open"):
+    def buy(self, symbol: str, shares: int):
         """
         Buy shares of a symbol.
 
         :param symbol: The stock symbol to buy.
         :param shares: The number of shares to buy.
-        :param buy_at: The metric at which to buy ('open', 'close', etc.).
         :raises ValueError: If cash is insufficient or number of shares is negative.
         """
         if shares <= 0:
             raise ValueError("Number of shares to buy should be greater than zero.")
 
-        price = self.fs.get_price(symbol, self._date, metric=buy_at)
+        price = self.fs.get_price(symbol, self._date, metric=self.buying_at)
         cost = price * shares
         if self._cash < cost:
             raise ValueError("Insufficient cash to make the purchase.")
@@ -47,13 +58,12 @@ class Bank:
         self._cash -= cost
         self._portfolio[symbol] = self._portfolio.get(symbol, 0) + shares
 
-    def sell(self, symbol: str, shares: int, sell_at: str = "close"):
+    def sell(self, symbol: str, shares: int):
         """
         Sell shares of a symbol.
 
         :param symbol: The stock symbol to sell.
         :param shares: The number of shares to sell.
-        :param sell_at: The metric at which to sell ('open', 'close', etc.).
         :raises ValueError: If stock is not owned, insufficient shares are owned, or number of shares is negative.
         """
         if shares <= 0:
@@ -66,7 +76,7 @@ class Bank:
         if owned_shares < shares:
             raise ValueError("You don't own enough shares to complete the sale.")
 
-        price = self.fs.get_price(symbol, self._date, metric=sell_at)
+        price = self.fs.get_price(symbol, self._date, metric=self.selling_at)
         self._cash += price * shares
         self._portfolio[symbol] -= shares
 
@@ -83,7 +93,7 @@ class Bank:
             ), "Bank needs to be updated by the end of each day."
         self._history.append(self.get_status())
         self._date += datetime.timedelta(days=1)
-        return self._history[-1]
+        return self.get_status()
 
     def get_status(self):
         return Status(
@@ -94,15 +104,16 @@ class Bank:
             total_deposits=self.total_deposits,
         )
 
-    def get_total_value(self) -> float:
+    def get_total_value(self, metric=None) -> float:
         """
         Retrieve the total value of the bank.
 
         :return: The total value of the bank.
         """
+        metric = metric or self.selling_at
         total = self._cash
         for symbol, shares in self._portfolio.items():
-            total += self.fs.get_price(symbol, self._date) * shares
+            total += self.fs.get_price(symbol, self._date, metric=metric) * shares
         return total
 
     def is_weekend(self) -> bool:
@@ -151,15 +162,24 @@ class Bank:
         """
         return self._history.copy()
 
-    def get_available_stocks_and_prices(self, at="open") -> Optional[Dict[str, float]]:
+    def get_available_stocks_and_prices(
+        self, for_date=None, at=None
+    ) -> Optional[Dict[str, float]]:
         """
         Retrieve a list of available stocks and their current open prices.
 
         :return: A dictionary with stock tickers as keys and their current open prices as values.
         """
+        for_date = for_date or self._date
+        at = at or self.buying_at
         daily_data = self.fs.get_finance_for_dates(
-            self._date, self._date, self.fs.supported_tickers, melt=True
+            for_date, for_date, self.fs.supported_tickers, melt=True
         )
         if len(daily_data) == 0:
-            return None
+            if self.trading_on_weekend:
+                return self.get_available_stocks_and_prices(
+                    for_date - datetime.timedelta(days=1)
+                )
+            else:
+                return None
         return daily_data.set_index("ticker")[at].to_dict()

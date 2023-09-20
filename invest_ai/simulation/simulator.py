@@ -36,6 +36,7 @@ class Simulator:
         """
 
         status = self.bank.get_status()
+
         if status.date.day == 1:
             if self.monthly_budget > 0:
                 self.bank.deposit(self.monthly_budget)
@@ -63,8 +64,3 @@ class Simulator:
         :return: A list of status objects representing the trading history.
         """
         return self.bank.get_history()
-
-
-if __name__ == "__main__":
-    fs = FinanceStore()
-    bank = Bank(initial_amount=1000, start_date=datetime.date(2023, 1, 1), fs=fs)

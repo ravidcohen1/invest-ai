@@ -431,6 +431,7 @@ def test__finalize(setup_data_preprocessor, numerical_features, textual_features
         "close": [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9],
         "volume": [100, 200, 300, 400, 500, 600, 20, 30, 40],
         "title": ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"],
+        "keywords_count": [1, 2, 3, 4, 5, 6, 7, 8, 9],
         "weekday": ["Mon", "Tue", "Wed", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     }
     df_x = pd.DataFrame(sample_data_x)
@@ -452,7 +453,7 @@ def test__finalize(setup_data_preprocessor, numerical_features, textual_features
         ["ticker", "sample_id"]
         + numerical_features
         + textual_features
-        + ["return", "date"]
+        + ["return", "date", "keywords_count"]
     )
     assert set(final_df.columns) == set(
         expected_columns
@@ -573,5 +574,257 @@ def test_preprocess_end_to_end(setup_data_preprocessor, news_store, finance_stor
         assert np.isclose(sample["return"], y / x - 1)
 
 
-# def test_binning():
-#     assert False
+@pytest.mark.parametrize(
+    "max_per_day, min_per_window, relevant_sample_titles, is_train",
+    [
+        (2, 2, 2, True),
+        (2, 1, 1, False),
+        (3, 4, 1, True),
+        (1, 0, 1, False),
+    ],
+)
+def test_cut_titles(
+    setup_data_preprocessor,
+    max_per_day,
+    min_per_window,
+    relevant_sample_titles,
+    is_train,
+):
+    # Instance of the class
+    dp = setup_data_preprocessor
+    dp.cfg.titles.max_per_day = max_per_day
+    dp.cfg.titles.min_per_window = min_per_window
+    dp.cfg.titles.relevant_sample_titles = relevant_sample_titles
+
+    # Larger sample DataFrame with up to 7 daily titles
+    sample_df = pd.DataFrame(
+        {
+            "title": [
+                [
+                    [
+                        "title1",
+                        "title2",
+                        "title3",
+                        "title4",
+                        "title5",
+                        "title6",
+                        "title7",
+                    ],
+                    ["title8", "title9"],
+                ],
+                [
+                    ["title10", "title11"],
+                    [
+                        "title12",
+                        "title13",
+                        "title14",
+                        "title15",
+                        "title16",
+                        "title17",
+                        "title18",
+                    ],
+                ],
+                [None, ["title19", "title20", "title21"], ["title22"]],
+                [[], [], ["title23", "title24", "title25", "title26"]],
+                [["title27", "title28"], ["title29"], ["title30"]],
+            ],
+            "keywords_count": [
+                [[1, 2, 3, 4, 5, 6, 7], [8, 9]],
+                [[10, 11], [12, 13, 14, 15, 16, 17, 18]],
+                [None, [19, 20, 21], [22]],
+                [[], [], [23, 24, 25, 26]],
+                [[27, 28], [29], [30]],
+            ],
+        }
+    )
+
+    # Applying the _cut_titles method
+    processed_df = dp._cut_titles(sample_df.copy(), is_train=is_train)
+
+    # 1. Check if None or non-list items are replaced with empty lists
+    assert all(
+        isinstance(item, list) for sublist in processed_df["title"] for item in sublist
+    ), "None or non-list items were not replaced with empty lists."
+
+    # 2. Check if daily titles are limited by 'max_per_day'
+    assert all(
+        all(len(daily_titles) <= max_per_day for daily_titles in window_titles)
+        for window_titles in processed_df["title"]
+    ), "Titles are not limited by 'max_per_day' for each day."
+
+    # 3. Check if DataFrame is filtered based on 'min_per_window'
+    total_titles = processed_df["title"].apply(
+        lambda x: sum(len(daily_titles) for daily_titles in x)
+    )
+    assert all(
+        count >= min_per_window for count in total_titles
+    ), "DataFrame was not filtered based on 'min_per_window'."
+
+    # 4. Check if resampling occurred when is_train=True and relevant_sample_titles > 1
+    if is_train and relevant_sample_titles > 1:
+        assert (
+            len(processed_df) == len(sample_df) * relevant_sample_titles
+        ), "Resampling did not occur as expected."
+
+    # 5. Check if no resampling occurred when is_train=False or relevant_sample_titles <= 1
+    if not is_train or relevant_sample_titles <= 1:
+        total_titles = sample_df["title"].apply(
+            lambda x: sum(
+                len(daily_titles[:max_per_day]) if daily_titles is not None else 0
+                for daily_titles in x
+            )
+        )
+        num_of_small_windows = sum(total_titles < min_per_window)
+        assert (
+            len(processed_df) == len(sample_df) - num_of_small_windows
+        ), "Unexpected resampling occurred."
+
+    # 6. Check that when train=False, the chosen titles are the ones with the most counts
+    if not is_train:
+        for (
+            window_titles,
+            original_window_titles,
+            original_window_keyword_counts,
+        ) in zip(
+            processed_df["title"], sample_df["title"], sample_df["keywords_count"]
+        ):
+            for (
+                daily_titles,
+                original_daily_titles,
+                original_daily_keyword_counts,
+            ) in zip(
+                window_titles, original_window_titles, original_window_keyword_counts
+            ):
+                if daily_titles and original_daily_titles:
+                    sorted_pairs = sorted(
+                        zip(original_daily_keyword_counts, original_daily_titles),
+                        reverse=True,
+                    )
+                    expected_titles = [title for _, title in sorted_pairs][:max_per_day]
+                    assert set(daily_titles) == set(
+                        expected_titles
+                    ), "Titles with the most counts were not chosen when train=False."
+
+    # 7. Check for no repetitions in daily titles
+    for window_titles in processed_df["title"]:
+        for daily_titles in window_titles:
+            if daily_titles:
+                assert len(set(daily_titles)) == len(
+                    daily_titles
+                ), "Repetitions found in daily titles."
+
+
+import pytest
+import pandas as pd
+
+
+@pytest.mark.parametrize(
+    "max_per_day, min_per_window, relevant_sample_titles, is_train",
+    [
+        (2, 1, 1, False),
+        (1, 0, 1, False),
+    ],
+)
+def test_exclude_zero_count_titles(
+    setup_data_preprocessor,
+    max_per_day,
+    min_per_window,
+    relevant_sample_titles,
+    is_train,
+):
+    # Instance of the class
+    dp = setup_data_preprocessor
+    dp.cfg.titles.max_per_day = max_per_day
+    dp.cfg.titles.min_per_window = min_per_window
+    dp.cfg.titles.relevant_sample_titles = relevant_sample_titles
+
+    # Sample DataFrame with titles having zero keyword counts
+    sample_df = pd.DataFrame(
+        {
+            "title": [
+                [["title1", "title2"], ["title3", "title4"]],
+                [["title5"], ["title6", "title7"]],
+                [None, ["title8"]],
+            ],
+            "keywords_count": [[[1, 0], [0, 3]], [[1], [2, 0]], [None, [0]]],
+        }
+    )
+
+    # Applying the _cut_titles method
+    processed_df = dp._cut_titles(sample_df.copy(), is_train=is_train)
+
+    # 8. Check that titles with zero keyword counts are not included
+    for window_titles, original_window_titles, original_window_keyword_counts in zip(
+        processed_df["title"], sample_df["title"], sample_df["keywords_count"]
+    ):
+        for daily_titles, original_daily_titles, original_daily_keyword_counts in zip(
+            window_titles, original_window_titles, original_window_keyword_counts
+        ):
+            if daily_titles and original_daily_titles:
+                expected_titles = [
+                    title
+                    for count, title in zip(
+                        original_daily_keyword_counts, original_daily_titles
+                    )
+                    if count != 0
+                ]
+                assert set(daily_titles) == set(
+                    expected_titles
+                ), "Titles with zero keyword counts were included."
+
+
+import pytest
+import pandas as pd
+
+
+@pytest.mark.parametrize(
+    "max_per_day, min_per_window, relevant_sample_titles, is_train",
+    [
+        (2, 2, 2, True),
+        (2, 1, 1, False),
+        (1, 0, 1, False),
+    ],
+)
+def test_filter_last_day_empty_titles(
+    setup_data_preprocessor,
+    max_per_day,
+    min_per_window,
+    relevant_sample_titles,
+    is_train,
+):
+    # Instance of the class
+    dp = setup_data_preprocessor
+    dp.cfg.titles.max_per_day = max_per_day
+    dp.cfg.titles.min_per_window = min_per_window
+    dp.cfg.titles.relevant_sample_titles = relevant_sample_titles
+
+    # Sample DataFrame with last day having empty titles in some windows
+    sample_df = pd.DataFrame(
+        {
+            "title": [
+                [["title1", "title2"], []],
+                [["title5"], ["title6", "title7"]],
+                [None, []],
+                [[], [], ["title8"]],
+            ],
+            "keywords_count": [
+                [[1, 2], []],
+                [[1], [2, 3]],
+                [None, []],
+                [[], [], [4]],
+            ],
+        }
+    )
+
+    # Applying the _cut_titles method
+    processed_df = dp._cut_titles(sample_df.copy(), is_train=is_train)
+
+    # Filter out windows where the last day has empty titles
+    processed_df = processed_df[
+        processed_df["title"].apply(lambda window_titles: len(window_titles[-1]) > 0)
+    ]
+
+    # 9. Check that windows with empty titles on the last day are not included
+    assert all(
+        len(window_titles[-1]) > 0 for window_titles in processed_df["title"]
+    ), "Windows with empty titles on the last day were included."

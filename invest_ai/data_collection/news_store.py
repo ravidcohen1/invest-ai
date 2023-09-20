@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 from shutil import copy2
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import pandas as pd
 import requests
@@ -25,9 +25,15 @@ class NewsStore:
     A class to manage the storage and retrieval of news articles and their metadata.
     """
 
-    def __init__(self, csv_file_path: Optional[Path] = cfg.NEW_DATA_PATH, backup=True):
+    def __init__(
+        self,
+        csv_file_path: Optional[Path] = cfg.NEW_DATA_PATH,
+        backup=True,
+        keywords: Optional[List[str]] = None,
+    ):
         self.csv_file_path = csv_file_path
         self.df = self._load_data(backup)
+        self.keywords = keywords
 
     def _load_data(self, backup) -> pd.DataFrame:
         """Load data from the CSV file into a DataFrame."""
@@ -65,7 +71,14 @@ class NewsStore:
         fetch_missing_dates: bool = False,
         drop_articles: bool = False,
     ) -> pd.DataFrame:
-        """Fetch or retrieve news for a date range."""
+        """
+        Get news articles for a given date range.
+        :param start_date:
+        :param end_date:
+        :param fetch_missing_dates:
+        :param drop_articles:
+        :return:
+        """
         from invest_ai.utils.string import date_to_str, str_to_date
 
         if isinstance(start_date, str):
@@ -87,8 +100,7 @@ class NewsStore:
             (self.df["date"] >= start_date_str) & (self.df["date"] <= end_date_str)
         ]
         if not fetch_missing_dates:
-            if drop_articles:
-                result_df.drop(columns=["article"], inplace=True)
+            result_df = self._final_things(result_df, drop_articles)
             return result_df
 
         # Identify missing dates and fetch records for them
@@ -134,9 +146,20 @@ class NewsStore:
         result_df = self.df[
             (self.df["date"] >= start_date_str) & (self.df["date"] <= end_date_str)
         ]
+
+        result_df = self._final_things(result_df, drop_articles)
+
+        return result_df
+
+    def _final_things(self, result_df, drop_articles):
+        if self.keywords is not None:
+            result_df["keywords_count"] = 0
+            result_df["article"].fillna("", inplace=True)
+            for keyword in self.keywords:
+                result_df["keywords_count"] += result_df["article"].str.count(keyword)
         if drop_articles:
             result_df.drop(columns=["article"], inplace=True)
-        return result_df
+        return result_df.copy()
 
     def fetch_content_in_parallel(
         self, urls: pd.Series, num_workers: int = 4
@@ -196,4 +219,62 @@ class NewsStore:
 
 if __name__ == "__main__":
     news_store = NewsStore()
-    news_store.get_news_for_dates("2000-01-01", "2023-09-01", fetch_missing_dates=True)
+    df = news_store.get_news_for_dates(
+        "2007-01-01", "2023-09-01", fetch_missing_dates=False
+    )
+    from tqdm import tqdm
+
+    tqdm.pandas()
+
+    apple_keywords = [
+        "Apple Inc.",
+        "Apple Company",
+        "Apple Products",
+        "Apple Services",
+        "Apple Earnings",
+        "Apple Revenue",
+        "iPhone",
+        "MacBook",
+        "AirPods",
+        "Apple Watch",
+        "iPad",
+        "iMac",
+        "Mac Mini",
+        "iOS",
+        "macOS",
+        "Apple Stock",
+        "Apple Quarterly Report",
+        "Apple Dividends",
+        "Apple M&A",
+        "Apple Market Cap",
+        "Apple Silicon",
+        "Apple Software",
+        "Apple Patents",
+        "Apple R&D",
+        "Apple App Store",
+        "Apple Music",
+        "Apple TV+",
+        "iCloud",
+        "Apple One",
+        "Apple Pay",
+        "Apple Lawsuit",
+        "Apple Regulation",
+        "Apple Antitrust",
+        "Apple vs Samsung",
+        "Apple vs Google",
+        "Apple in China",
+        "Apple Sustainability",
+        "Apple Event",
+        "Apple Keynote",
+        "WWDC",
+        "Apple September Event",
+    ]
+
+    df["apple_score"] = 0
+    df["article"].fillna("", inplace=True)
+    for keyword in tqdm(apple_keywords):
+        df["apple_score"] += df["article"].str.count(keyword)
+
+    s = df[df.article.notna()].article.progress_apply(lambda x: "Apple" in x).sum()
+    print()
+    print(s)

@@ -25,12 +25,14 @@ class FinanceStore:
         max_date: Union[str, datetime.date] = cfg.MAX_SUPPORTED_DATE,
         supported_tickers: Sequence[str] = cfg.SUPPORTED_TICKERS,
         data_path: Path = cfg.FINANCE_DATA_PATH,
+        trading_on_weekend: bool = False,
     ):
         min_date, max_date = self._fix_dates(min_date, max_date)
         self._validate_init_input(min_date, max_date, supported_tickers, data_path)
         self.data_path = data_path
         self.min_date = min_date
         self.max_date = max_date
+        self.trading_on_weekend = trading_on_weekend
         self.supported_tickers = supported_tickers
         if YEARLY_10_PERCENT in supported_tickers:
             self.df = self._generate_10_percent_stock()
@@ -94,10 +96,15 @@ class FinanceStore:
         assert self.min_date >= available_dates.min().date()
         assert self.max_date <= available_dates.max().date()
 
-        data = data.loc[
+        data: pd.DataFrame = data.loc[
             pd.IndexSlice[self.min_date : self.max_date],
             pd.IndexSlice[:, self.supported_tickers],
         ]
+        if self.trading_on_weekend:
+            all_dates = pd.date_range(start=self.min_date, end=self.max_date)
+            index_name = data.index.name
+            data = data.reindex(all_dates, method="ffill")
+            data.index.name = index_name
         return data
 
     @staticmethod
@@ -256,8 +263,3 @@ class FinanceStore:
             raise TypeError(
                 "stock_tickers must be either a string or a list of strings"
             )
-
-
-if __name__ == "__main__":
-    fs = FinanceStore(supported_tickers=[YEARLY_10_PERCENT])
-    print(fs.df)
