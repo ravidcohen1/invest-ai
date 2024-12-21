@@ -89,7 +89,7 @@ target into labels such as 'good', 'bad', or 'neutral'.
 The [driver.py](invest_ai/driver.py) file serves as the entry point of this repository.
 It instantiates the investor and the predictor, trains the predictor, runs the simulation,
 and plots metrics for the train, validation, and test periods. These metrics include the total
-value at each point in time (cash + stocks) of the "investor", total profit (value minus the cumulative
+value at each point in time (cash + stocks) of the investor, total profit (value minus the cumulative
 budget at each point), and the percentage of profit.
 
 ![experiment.png](images/experiment.png)
