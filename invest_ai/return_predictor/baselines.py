@@ -42,7 +42,6 @@ class AbstractReturnPredictor(abc.ABC):
         """
         Get the list of labels from the given DataFrame.
 
-        :param df_path: Path to the DataFrame.
         :return: List of labels.
         """
         raise NotImplementedError
